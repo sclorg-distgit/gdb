@@ -1,0 +1,647 @@
+http://sourceware.org/gdb/wiki/ProjectArcher
+http://sourceware.org/gdb/wiki/ArcherBranchManagement
+
+GIT snapshot:
+commit b88230edf4e2da948d633c283ba0893bf22bd7ae
+
+tromey/python
+
+
+Index: gdb-7.8/README.archer
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gdb-7.8/README.archer	2014-07-29 19:29:04.861982779 +0200
+@@ -0,0 +1,2 @@
++This branch originally held the Python code for gdb.  It still exists
++because a small amount of code here has not yet been merged upstream.
+Index: gdb-7.8/gdb/Makefile.in
+===================================================================
+--- gdb-7.8.orig/gdb/Makefile.in	2014-07-29 19:29:02.665979655 +0200
++++ gdb-7.8/gdb/Makefile.in	2014-07-29 19:29:04.862982781 +0200
+@@ -1476,6 +1476,12 @@ stamp-h: $(srcdir)/config.in config.stat
+ 	  CONFIG_LINKS= \
+ 	  $(SHELL) config.status
+ 
++.gdbinit: $(srcdir)/gdbinit.in config.status
++	CONFIG_FILES=".gdbinit:gdbinit.in" \
++	  CONFIG_COMMANDS= \
++	  CONFIG_HEADERS= \
++	  $(SHELL) config.status
++
+ config.status: $(srcdir)/configure configure.tgt configure.host ../bfd/development.sh
+ 	$(SHELL) config.status --recheck
+ 
+Index: gdb-7.8/gdb/data-directory/Makefile.in
+===================================================================
+--- gdb-7.8.orig/gdb/data-directory/Makefile.in	2014-07-29 19:29:02.665979655 +0200
++++ gdb-7.8/gdb/data-directory/Makefile.in	2014-07-29 19:29:33.053022486 +0200
+@@ -65,6 +65,8 @@ PYTHON_FILE_LIST = \
+ 	gdb/prompt.py \
+ 	gdb/xmethod.py \
+ 	gdb/command/__init__.py \
++	gdb/command/ignore_errors.py \
++	gdb/command/pahole.py \
+ 	gdb/command/xmethods.py \
+ 	gdb/command/frame_filters.py \
+ 	gdb/command/type_printers.py \
+@@ -74,7 +76,10 @@ PYTHON_FILE_LIST = \
+ 	gdb/function/__init__.py \
+ 	gdb/function/strfns.py \
+ 	gdb/printer/__init__.py \
+-	gdb/printer/bound_registers.py
++	gdb/printer/bound_registers.py \
++	gdb/function/caller_is.py \
++	gdb/function/in_scope.py \
++	gdb/types.py
+ 
+ @HAVE_PYTHON_TRUE@PYTHON_FILES = $(PYTHON_FILE_LIST)
+ @HAVE_PYTHON_FALSE@PYTHON_FILES =
+Index: gdb-7.8/gdb/doc/gdb.texinfo
+===================================================================
+--- gdb-7.8.orig/gdb/doc/gdb.texinfo	2014-07-29 19:29:02.675979669 +0200
++++ gdb-7.8/gdb/doc/gdb.texinfo	2014-07-29 19:29:04.871982794 +0200
+@@ -1225,6 +1225,16 @@ for remote debugging.
+ Run using @var{device} for your program's standard input and output.
+ @c FIXME: kingdon thinks there is more to -tty.  Investigate.
+ 
++@item -P
++@cindex @code{-P}
++@itemx --python
++@cindex @code{--python}
++Change interpretation of command line so that the argument immediately
++following this switch is taken to be the name of a Python script file.
++This option stops option processing; subsequent options are passed to
++Python as @code{sys.argv}.  This option is only available if Python
++scripting support was enabled when @value{GDBN} was configured.
++
+ @c resolve the situation of these eventually
+ @item -tui
+ @cindex @code{--tui}
+Index: gdb-7.8/gdb/doc/python.texi
+===================================================================
+--- gdb-7.8.orig/gdb/doc/python.texi	2014-07-29 19:29:02.677979672 +0200
++++ gdb-7.8/gdb/doc/python.texi	2014-07-29 19:29:04.872982795 +0200
+@@ -88,8 +88,6 @@ containing @code{end}.  For example:
+ 
+ @smallexample
+ (@value{GDBP}) python
+-Type python script
+-End with a line saying just "end".
+ >print 23
+ >end
+ 23
+Index: gdb-7.8/gdb/gdb-gdb.gdb.in
+===================================================================
+--- gdb-7.8.orig/gdb/gdb-gdb.gdb.in	2014-07-29 19:29:02.677979672 +0200
++++ gdb-7.8/gdb/gdb-gdb.gdb.in	2014-07-29 19:29:04.872982795 +0200
+@@ -1,5 +1,15 @@
+ echo Setting up the environment for debugging gdb.\n
+ 
++# Set up the Python library and "require" command.
++python
++from os.path import abspath
++gdb.datadir = abspath ('@srcdir@/python/lib')
++gdb.pythonlibdir = gdb.datadir
++gdb.__path__ = [gdb.datadir + '/gdb']
++sys.path.insert(0, gdb.datadir)
++end
++source @srcdir@/python/lib/gdb/__init__.py
++
+ if !$gdb_init_done
+   set variable $gdb_init_done = 1
+ 
+Index: gdb-7.8/gdb/main.c
+===================================================================
+--- gdb-7.8.orig/gdb/main.c	2014-07-29 19:29:02.678979673 +0200
++++ gdb-7.8/gdb/main.c	2014-07-29 19:29:04.872982795 +0200
+@@ -37,6 +37,7 @@
+ 
+ #include "interps.h"
+ #include "main.h"
++#include "python/python.h"
+ #include "source.h"
+ #include "cli/cli-cmds.h"
+ #include "objfiles.h"
+@@ -417,6 +418,8 @@ captured_main (void *data)
+   char *cdarg = NULL;
+   char *ttyarg = NULL;
+ 
++  int python_script = 0;
++
+   /* These are static so that we can take their address in an
+      initializer.  */
+   static int print_help;
+@@ -624,10 +627,14 @@ captured_main (void *data)
+       {"args", no_argument, &set_args, 1},
+       {"l", required_argument, 0, 'l'},
+       {"return-child-result", no_argument, &return_child_result, 1},
++#if HAVE_PYTHON
++      {"python", no_argument, 0, 'P'},
++      {"P", no_argument, 0, 'P'},
++#endif
+       {0, no_argument, 0, 0}
+     };
+ 
+-    while (1)
++    while (!python_script)
+       {
+ 	int option_index;
+ 
+@@ -645,6 +652,9 @@ captured_main (void *data)
+ 	  case 0:
+ 	    /* Long option that just sets a flag.  */
+ 	    break;
++	  case 'P':
++	    python_script = 1;
++	    break;
+ 	  case OPT_SE:
+ 	    symarg = optarg;
+ 	    execarg = optarg;
+@@ -849,7 +859,31 @@ captured_main (void *data)
+ 
+   /* Now that gdb_init has created the initial inferior, we're in
+      position to set args for that inferior.  */
+-  if (set_args)
++  if (python_script)
++    {
++      /* The first argument is a python script to evaluate, and
++	 subsequent arguments are passed to the script for
++	 processing there.  */
++      if (optind >= argc)
++	{
++	  fprintf_unfiltered (gdb_stderr,
++			      _("%s: Python script file name required\n"),
++			      argv[0]);
++	  exit (1);
++	}
++
++      /* FIXME: should handle inferior I/O intelligently here.
++	 E.g., should be possible to run gdb in pipeline and have
++	 Python (and gdb) output go to stderr or file; and if a
++	 prompt is needed, open the tty.  */
++      quiet = 1;
++      /* FIXME: should read .gdbinit if, and only if, a prompt is
++	 requested by the script.  Though... maybe this is not
++	 ideal?  */
++      /* FIXME: likewise, reading in history.  */
++      inhibit_gdbinit = 1;
++    }
++  else if (set_args)
+     {
+       /* The remaining options are the command-line options for the
+ 	 inferior.  The first one is the sym/exec file, and the rest
+@@ -1135,7 +1169,8 @@ captured_main (void *data)
+ 
+   /* Read in the old history after all the command files have been
+      read.  */
+-  init_history ();
++  if (!python_script)
++    init_history ();
+ 
+   if (batch_flag)
+     {
+@@ -1146,13 +1181,25 @@ captured_main (void *data)
+   /* Show time and/or space usage.  */
+   do_cleanups (pre_stat_chain);
+ 
+-  /* NOTE: cagney/1999-11-07: There is probably no reason for not
+-     moving this loop and the code found in captured_command_loop()
+-     into the command_loop() proper.  The main thing holding back that
+-     change - SET_TOP_LEVEL() - has been eliminated.  */
+-  while (1)
++#if HAVE_PYTHON
++  if (python_script)
+     {
+-      catch_errors (captured_command_loop, 0, "", RETURN_MASK_ALL);
++      extern int pagination_enabled;
++      pagination_enabled = 0;
++      run_python_script (argc - optind, &argv[optind]);
++      return 1;
++    }
++  else
++#endif
++    {
++      /* NOTE: cagney/1999-11-07: There is probably no reason for not
++	 moving this loop and the code found in captured_command_loop()
++	 into the command_loop() proper.  The main thing holding back that
++	 change - SET_TOP_LEVEL() - has been eliminated. */
++      while (1)
++	{
++	  catch_errors (captured_command_loop, 0, "", RETURN_MASK_ALL);
++	}
+     }
+   /* No exit -- exit is through quit_command.  */
+ }
+@@ -1186,6 +1233,12 @@ print_gdb_help (struct ui_file *stream)
+   fputs_unfiltered (_("\
+ This is the GNU debugger.  Usage:\n\n\
+     gdb [options] [executable-file [core-file or process-id]]\n\
++    gdb [options] --args executable-file [inferior-arguments ...]\n"), stream);
++#if HAVE_PYTHON
++  fputs_unfiltered (_("\
++    gdb [options] [--python|-P] script-file [script-arguments ...]\n"), stream);
++#endif
++  fputs_unfiltered (_("\n\
+     gdb [options] --args executable-file [inferior-arguments ...]\n\n\
+ "), stream);
+   fputs_unfiltered (_("\
+@@ -1231,6 +1284,13 @@ Output and user interface control:\n\n\
+   fputs_unfiltered (_("\
+   --dbx              DBX compatibility mode.\n\
+   --xdb              XDB compatibility mode.\n\
++"), stream);
++#if HAVE_PYTHON
++  fputs_unfiltered (_("\
++  --python, -P       Following argument is Python script file; remaining\n\
++                     arguments are passed to script.\n"), stream);
++#endif
++  fputs_unfiltered (_("\
+   -q, --quiet, --silent\n\
+                      Do not print version number on startup.\n\n\
+ "), stream);
+Index: gdb-7.8/gdb/python/lib/gdb/command/ignore_errors.py
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gdb-7.8/gdb/python/lib/gdb/command/ignore_errors.py	2014-07-29 19:29:04.872982795 +0200
+@@ -0,0 +1,37 @@
++# Ignore errors in user commands.
++
++# Copyright (C) 2008 Free Software Foundation, Inc.
++
++# This program is free software; you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation; either version 3 of the License, or
++# (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program.  If not, see <http://www.gnu.org/licenses/>.
++
++import gdb
++
++class IgnoreErrorsCommand (gdb.Command):
++    """Execute a single command, ignoring all errors.
++Only one-line commands are supported.
++This is primarily useful in scripts."""
++
++    def __init__ (self):
++        super (IgnoreErrorsCommand, self).__init__ ("ignore-errors",
++                                                    gdb.COMMAND_OBSCURE,
++                                                    # FIXME...
++                                                    gdb.COMPLETE_COMMAND)
++
++    def invoke (self, arg, from_tty):
++        try:
++            gdb.execute (arg, from_tty)
++        except:
++            pass
++
++IgnoreErrorsCommand ()
+Index: gdb-7.8/gdb/python/lib/gdb/command/pahole.py
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gdb-7.8/gdb/python/lib/gdb/command/pahole.py	2014-07-29 19:29:04.873982797 +0200
+@@ -0,0 +1,81 @@
++# pahole command for gdb
++
++# Copyright (C) 2008, 2009, 2012 Free Software Foundation, Inc.
++
++# This program is free software; you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation; either version 3 of the License, or
++# (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program.  If not, see <http://www.gnu.org/licenses/>.
++
++import gdb
++
++class Pahole (gdb.Command):
++    """Show the holes in a structure.
++This command takes a single argument, a type name.
++It prints the type and displays comments showing where holes are."""
++
++    def __init__ (self):
++        super (Pahole, self).__init__ ("pahole", gdb.COMMAND_NONE,
++                                       gdb.COMPLETE_SYMBOL)
++
++    def maybe_print_hole(self, bitpos, field_bitpos):
++        if bitpos != field_bitpos:
++            hole = field_bitpos - bitpos
++            print '  /* XXX %d bit hole, try to pack */' % hole
++
++    def pahole (self, type, level, name):
++        if name is None:
++            name = ''
++        tag = type.tag
++        if tag is None:
++            tag = ''
++        print '%sstruct %s {' % (' ' * (2 * level), tag)
++        bitpos = 0
++        for field in type.fields ():
++            # Skip static fields.
++            if not hasattr (field, ('bitpos')):
++                continue
++
++            ftype = field.type.strip_typedefs()
++
++            self.maybe_print_hole(bitpos, field.bitpos)
++            bitpos = field.bitpos
++            if field.bitsize > 0:
++                fieldsize = field.bitsize
++            else:
++                # TARGET_CHAR_BIT here...
++                fieldsize = 8 * ftype.sizeof
++
++            # TARGET_CHAR_BIT
++            print ' /* %3d %3d */' % (int (bitpos / 8), int (fieldsize / 8)),
++            bitpos = bitpos + fieldsize
++
++            if ftype.code == gdb.TYPE_CODE_STRUCT:
++                self.pahole (ftype, level + 1, field.name)
++            else:
++                print ' ' * (2 + 2 * level),
++                print '%s %s' % (str (ftype), field.name)
++
++        if level == 0:
++            self.maybe_print_hole(bitpos, 8 * type.sizeof)
++
++        print ' ' * (14 + 2 * level),
++        print '} %s' % name
++
++    def invoke (self, arg, from_tty):
++        type = gdb.lookup_type (arg)
++        type = type.strip_typedefs ()
++        if type.code != gdb.TYPE_CODE_STRUCT:
++            raise TypeError, '%s is not a struct type' % arg
++        print ' ' * 14,
++        self.pahole (type, 0, '')
++
++Pahole()
+Index: gdb-7.8/gdb/python/lib/gdb/function/caller_is.py
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gdb-7.8/gdb/python/lib/gdb/function/caller_is.py	2014-07-29 19:29:04.873982797 +0200
+@@ -0,0 +1,58 @@
++# Caller-is functions.
++
++# Copyright (C) 2008 Free Software Foundation, Inc.
++
++# This program is free software; you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation; either version 3 of the License, or
++# (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program.  If not, see <http://www.gnu.org/licenses/>.
++
++import gdb
++import re
++
++class CallerIs (gdb.Function):
++    """Return True if the calling function's name is equal to a string.
++This function takes one or two arguments.
++The first argument is the name of a function; if the calling function's
++name is equal to this argument, this function returns True.
++The optional second argument tells this function how many stack frames
++to traverse to find the calling function.  The default is 1."""
++
++    def __init__ (self):
++        super (CallerIs, self).__init__ ("caller_is")
++
++    def invoke (self, name, nframes = 1):
++        frame = gdb.selected_frame ()
++        while nframes > 0:
++            frame = frame.older ()
++            nframes = nframes - 1
++        return frame.name () == name.string ()
++
++class CallerMatches (gdb.Function):
++    """Return True if the calling function's name matches a string.
++This function takes one or two arguments.
++The first argument is a regular expression; if the calling function's
++name is matched by this argument, this function returns True.
++The optional second argument tells this function how many stack frames
++to traverse to find the calling function.  The default is 1."""
++
++    def __init__ (self):
++        super (CallerMatches, self).__init__ ("caller_matches")
++
++    def invoke (self, name, nframes = 1):
++        frame = gdb.selected_frame ()
++        while nframes > 0:
++            frame = frame.older ()
++            nframes = nframes - 1
++        return re.match (name.string (), frame.name ()) is not None
++
++CallerIs()
++CallerMatches()
+Index: gdb-7.8/gdb/python/lib/gdb/function/in_scope.py
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gdb-7.8/gdb/python/lib/gdb/function/in_scope.py	2014-07-29 19:29:04.873982797 +0200
+@@ -0,0 +1,47 @@
++# In-scope function.
++
++# Copyright (C) 2008 Free Software Foundation, Inc.
++
++# This program is free software; you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation; either version 3 of the License, or
++# (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program.  If not, see <http://www.gnu.org/licenses/>.
++
++import gdb
++
++class InScope (gdb.Function):
++    """Return True if all the given variables or macros are in scope.
++Takes one argument for each variable name to be checked."""
++
++    def __init__ (self):
++	super (InScope, self).__init__ ("in_scope")
++
++    def invoke (self, *vars):
++        if len (vars) == 0:
++	    raise TypeError, "in_scope takes at least one argument"
++
++        # gdb.Value isn't hashable so it can't be put in a map.
++	# Convert to string first.
++	wanted = set (map (lambda x: x.string (), vars))
++	found = set ()
++	block = gdb.selected_frame ().block ()
++	while block:
++	    for sym in block:
++		if (sym.is_argument or sym.is_constant
++		      or sym.is_function or sym.is_variable):
++		    if sym.name in wanted:
++			found.add (sym.name)
++
++	    block = block.superblock
++
++	return wanted == found
++
++InScope ()
+Index: gdb-7.8/gdb/python/python.c
+===================================================================
+--- gdb-7.8.orig/gdb/python/python.c	2014-07-29 19:29:02.679979674 +0200
++++ gdb-7.8/gdb/python/python.c	2014-07-29 19:29:04.873982797 +0200
+@@ -95,6 +95,8 @@ const struct extension_language_defn ext
+ #include "linespec.h"
+ #include "source.h"
+ #include "version.h"
++#include "inferior.h"
++#include "gdbthread.h"
+ #include "target.h"
+ #include "gdbthread.h"
+ #include "interps.h"
+@@ -1222,6 +1224,56 @@ gdbpy_print_stack (void)
+ 
+ /* Return the current Progspace.
+    There always is one.  */
++/* True if 'gdb -P' was used, false otherwise.  */
++static int running_python_script;
++
++/* True if we are currently in a call to 'gdb.cli', false otherwise.  */
++static int in_cli;
++
++/* Enter the command loop.  */
++
++static PyObject *
++gdbpy_cli (PyObject *unused1, PyObject *unused2)
++{
++  if (! running_python_script || in_cli)
++    return PyErr_Format (PyExc_RuntimeError, "cannot invoke CLI recursively");
++  
++  if (ui_out_is_mi_like_p (current_uiout))
++    return PyErr_Format (PyExc_RuntimeError, _("Cannot invoke CLI from MI."));
++
++  in_cli = 1;
++  current_interp_command_loop ();
++  in_cli = 0;
++
++  Py_RETURN_NONE;
++}
++
++/* Set up the Python argument vector and evaluate a script.  This is
++   used to implement 'gdb -P'.  */
++
++void
++run_python_script (int argc, char **argv)
++{
++  FILE *input;
++
++  /* We never free this, since we plan to exit at the end.  */
++  ensure_python_env (get_current_arch (), current_language);
++
++  running_python_script = 1;
++  PySys_SetArgv (argc - 1, argv + 1);
++  input = fopen (argv[0], "r");
++  if (! input)
++    {
++      fprintf (stderr, "could not open %s: %s\n", argv[0], strerror (errno));
++      exit (1);
++    }
++  PyRun_SimpleFile (input, argv[0]);
++  fclose (input);
++  exit (0);
++}
++
++
++
+ 
+ static PyObject *
+ gdbpy_get_current_progspace (PyObject *unused1, PyObject *unused2)
+@@ -1910,6 +1962,8 @@ static PyMethodDef GdbMethods[] =
+ Evaluate command, a string, as a gdb CLI command.  Optionally returns\n\
+ a Python String containing the output of the command if to_string is\n\
+ set to True." },
++  { "cli", gdbpy_cli, METH_NOARGS,
++    "Enter the gdb CLI" },
+   { "parameter", gdbpy_parameter, METH_VARARGS,
+     "Return a gdb parameter's value" },
+ 
+Index: gdb-7.8/gdb/python/python.h
+===================================================================
+--- gdb-7.8.orig/gdb/python/python.h	2014-07-29 19:29:02.679979674 +0200
++++ gdb-7.8/gdb/python/python.h	2014-07-29 19:29:04.873982797 +0200
+@@ -25,4 +25,6 @@
+ /* This is all that python exports to gdb.  */
+ extern const struct extension_language_defn extension_language_python;
+ 
++extern void run_python_script (int argc, char **argv);
++
+ #endif /* GDB_PYTHON_H */
+Index: gdb-7.8/gdb/testsuite/gdb.gdb/selftest.exp
+===================================================================
+--- gdb-7.8.orig/gdb/testsuite/gdb.gdb/selftest.exp	2014-07-29 19:29:02.679979674 +0200
++++ gdb-7.8/gdb/testsuite/gdb.gdb/selftest.exp	2014-07-29 19:29:04.874982798 +0200
+@@ -92,6 +92,10 @@ proc do_steps_and_nexts {} {
+ 		set description "step over cmdarg_vec initialization"
+ 		set command "step"
+ 	    }
++	    -re ".*python_script = 0.*$gdb_prompt $" {
++		set description "step over python_script initialization"
++		set command "step"
++	    }
+ 	    -re ".*pre_stat_chain = make_command_stats_cleanup.*$gdb_prompt $" {
+ 		set description "next over make_command_stats_cleanup and everything it calls"
+ 		set command "next"
+Index: gdb-7.8/gdb/testsuite/gdb.python/py-frame.exp
+===================================================================
+--- gdb-7.8.orig/gdb/testsuite/gdb.python/py-frame.exp	2014-07-29 19:29:02.680979676 +0200
++++ gdb-7.8/gdb/testsuite/gdb.python/py-frame.exp	2014-07-29 19:29:04.874982798 +0200
+@@ -94,3 +94,5 @@ gdb_test "python print ('result = %s' %
+ gdb_test "python print ('result = %s' % f0.read_var ('a'))" " = 1" "test Frame.read_var - success"
+ 
+ gdb_test "python print ('result = %s' % (gdb.selected_frame () == f1))" " = True" "test gdb.selected_frame"
++
++gdb_test "python print ('result = %s' % (f0.block ()))" "<gdb.Block object at 0x\[\[:xdigit:\]\]+>" "test Frame.block"
+Index: gdb-7.8/gdb/testsuite/gdb.python/py-value.exp
+===================================================================
+--- gdb-7.8.orig/gdb/testsuite/gdb.python/py-value.exp	2014-07-29 19:29:02.680979676 +0200
++++ gdb-7.8/gdb/testsuite/gdb.python/py-value.exp	2014-07-29 19:29:04.874982798 +0200
+@@ -385,6 +385,15 @@ proc test_value_after_death {} {
+     "print value's type"
+ }
+ 
++# Regression test for a cast failure.  The bug was that if we cast a
++# value to its own type, gdb could crash.  This happened because we
++# could end up double-freeing a struct value.
++proc test_cast_regression {} {
++  gdb_test "python v = gdb.Value(5)" "" "create value for cast test"
++  gdb_test "python v = v.cast(v.type)" "" "cast value for cast test"
++  gdb_test "python print v" "5" "print value for cast test"
++}
++
+ # Regression test for invalid subscript operations.  The bug was that
+ # the type of the value was not being checked before allowing a
+ # subscript operation to proceed.
+@@ -514,6 +523,7 @@ test_value_in_inferior
+ test_inferior_function_call
+ test_lazy_strings
+ test_value_after_death
++test_cast_regression
+ 
+ # Test either C or C++ values. 
+ 
