@@ -1,13 +1,9 @@
-For:
-http://sourceware.org/ml/gdb-patches/2008-04/msg00379.html
-http://sourceware.org/ml/gdb-cvs/2008-04/msg00104.html
-
-Index: gdb-7.10.90.20160211/gdb/testsuite/gdb.base/watchpoint-cond.exp
+Index: gdb-7.6.1/gdb/testsuite/gdb.base/rhbz1261564-aarch64-watchpoint.exp
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ gdb-7.10.90.20160211/gdb/testsuite/gdb.base/watchpoint-cond.exp	2016-02-15 23:33:49.519099759 +0100
-@@ -0,0 +1,37 @@
-+# Copyright 2008 Free Software Foundation, Inc.
++++ gdb-7.6.1/gdb/testsuite/gdb.base/rhbz1261564-aarch64-watchpoint.exp	2016-03-10 22:31:31.152094080 +0100
+@@ -0,0 +1,43 @@
++# Copyright (C) 2016 Free Software Foundation, Inc.
 +
 +# This program is free software; you can redistribute it and/or modify
 +# it under the terms of the GNU General Public License as published by
@@ -22,36 +18,42 @@ Index: gdb-7.10.90.20160211/gdb/testsuite/gdb.base/watchpoint-cond.exp
 +# You should have received a copy of the GNU General Public License
 +# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 +
-+set testfile watchpoint-cond
-+set srcfile ${testfile}.c
-+set binfile [standard_output_file ${testfile}]
-+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug}] != "" } {
-+    untested "Couldn't compile test program"
++if { [prepare_for_testing rhbz1261564-aarch64-watchpoint.exp "rhbz1261564-aarch64-watchpoint"] } {
 +    return -1
 +}
 +
-+# Get things started.
++if { ! [ runto main ] } then { return 0 }
 +
-+gdb_exit
-+gdb_start
-+gdb_reinitialize_dir $srcdir/$subdir
-+gdb_load ${binfile}
++gdb_test "rwatch aligned.var4" "Hardware read watchpoint \[0-9\]+: aligned.var4"
 +
-+if { [runto_main] < 0 } {
-+    untested watchpoint-cond
-+    return -1
++proc checkvar { address } {
++    global gdb_prompt
++
++    set test "p &aligned.var$address"
++    gdb_test_multiple $test $test {
++	-re " = \\(int \\*\\) 0x\[0-9a-f\]+$address <aligned(\\+\[0-9\]+)?>\r\n$gdb_prompt $" {
++	    pass $test
++	}
++	-re "\r\n$gdb_prompt $" {
++	    untested "$test (unexpected ELF layout)"
++	    return 0
++	}
++    }
++    return 1
 +}
++if ![checkvar "0"] { return }
++if ![checkvar "4"] { return }
++if ![checkvar "8"] { return }
 +
-+gdb_test "watch i if i < 20" "atchpoint \[0-9\]+: i"
-+gdb_test "cont" "atchpoint \[0-9\]+: i.*Old value = 20.*New value = 19.*"
-Index: gdb-7.10.90.20160211/gdb/testsuite/gdb.base/watchpoint-cond.c
++gdb_continue_to_end
+Index: gdb-7.6.1/gdb/testsuite/gdb.base/rhbz1261564-aarch64-watchpoint.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ gdb-7.10.90.20160211/gdb/testsuite/gdb.base/watchpoint-cond.c	2016-02-15 23:32:51.974691188 +0100
-@@ -0,0 +1,31 @@
++++ gdb-7.6.1/gdb/testsuite/gdb.base/rhbz1261564-aarch64-watchpoint.c	2016-03-10 22:31:31.152094080 +0100
+@@ -0,0 +1,33 @@
 +/* This testcase is part of GDB, the GNU debugger.
 +
-+   Copyright 2008 Free Software Foundation, Inc.
++   Copyright 2016 Free Software Foundation, Inc.
 +
 +   This program is free software; you can redistribute it and/or modify
 +   it under the terms of the GNU General Public License as published by
@@ -64,19 +66,21 @@ Index: gdb-7.10.90.20160211/gdb/testsuite/gdb.base/watchpoint-cond.c
 +   GNU General Public License for more details.
 +
 +   You should have received a copy of the GNU General Public License
-+   along with this program.  If not, see <http://www.gnu.org/licenses/>.
++   along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 +
-+   Please email any bugs, comments, and/or additions to this file to:
-+   bug-gdb@prep.ai.mit.edu  */
++__attribute__((aligned(16))) struct
++{
++  int var0, var4, var8;
++} aligned;
 +
 +int
-+main (int argc, char **argv)
++main (void)
 +{
-+  static int i = 0; /* `static' to start initialized.  */
-+  int j = 2;
++  aligned.var0 = 1;
++  aligned.var4 = 2;
++  aligned.var8 = 3;
 +
-+  for (j = 0; j < 30; j++)
-+    i = 30 - j;
++  aligned.var4 = aligned.var0;
 +
 +  return 0;
 +}
