@@ -1,0 +1,419 @@
+http://sourceware.org/ml/gdb-patches/2012-03/msg00171.html
+Subject: [patch 3/3] attach-fail-reasons: SELinux deny_ptrace
+
+Hi,
+
+and here is the last bit for new SELinux 'deny_ptrace':
+	https://bugzilla.redhat.com/show_bug.cgi?id=786878
+
+As even PTRACE_TRACEME fails in such case it needs to install hook for even
+that event.
+
+
+Thanks,
+Jan
+
+
+gdb/
+2012-03-06  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	* common/linux-ptrace.c [HAVE_SELINUX_SELINUX_H]: include
+	selinux/selinux.h.
+	(linux_ptrace_attach_warnings): Call linux_ptrace_create_warnings.
+	(linux_ptrace_create_warnings): New.
+	* common/linux-ptrace.h (linux_ptrace_create_warnings): New declaration.
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac: Check selinux/selinux.h and the selinux library.
+	* inf-ptrace.c (inf_ptrace_me): Check the ptrace result.
+	* linux-nat.c (linux_nat_create_inferior): New variable ex.  Wrap
+	to_create_inferior into TRY_CATCH, call linux_ptrace_create_warnings.
+
+gdb/gdbserver/
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac: Check selinux/selinux.h and the selinux library.
+	* linux-low.c (linux_traceme): New function.
+	(linux_create_inferior, linux_tracefork_child): Call it instead of
+	direct ptrace.
+
+Index: gdb-7.10.50.20160106/gdb/nat/linux-ptrace.c
+===================================================================
+--- gdb-7.10.50.20160106.orig/gdb/nat/linux-ptrace.c	2016-01-08 19:15:57.580707944 +0100
++++ gdb-7.10.50.20160106/gdb/nat/linux-ptrace.c	2016-01-08 19:16:02.654736246 +0100
+@@ -24,6 +24,10 @@
+ #include "gdb_wait.h"
+ #include "gdb_ptrace.h"
+ 
++#ifdef HAVE_SELINUX_SELINUX_H
++# include <selinux/selinux.h>
++#endif /* HAVE_SELINUX_SELINUX_H */
++
+ /* Stores the ptrace options supported by the running kernel.
+    A value of -1 means we did not check for features yet.  A value
+    of 0 means there are no supported features.  */
+@@ -48,6 +52,8 @@
+     buffer_xml_printf (buffer, _("process %d is a zombie "
+ 				 "- the process has already terminated"),
+ 		       (int) pid);
++
++  linux_ptrace_create_warnings (buffer);
+ }
+ 
+ /* See linux-ptrace.h.  */
+@@ -594,6 +600,22 @@
+   linux_ptrace_test_ret_to_nx ();
+ }
+ 
++/* Print all possible reasons we could fail to create a traced process.  */
++
++void
++linux_ptrace_create_warnings (struct buffer *buffer)
++{
++#ifdef HAVE_LIBSELINUX
++  /* -1 is returned for errors, 0 if it has no effect, 1 if PTRACE_ATTACH is
++     forbidden.  */
++  if (security_get_boolean_active ("deny_ptrace") == 1)
++    buffer_xml_printf (buffer,
++		       _("the SELinux boolean 'deny_ptrace' is enabled, "
++			 "you can disable this process attach protection by: "
++			 "(gdb) shell sudo setsebool deny_ptrace=0"));
++#endif /* HAVE_LIBSELINUX */
++}
++
+ /* Extract extended ptrace event from wait status.  */
+ 
+ int
+Index: gdb-7.10.50.20160106/gdb/nat/linux-ptrace.h
+===================================================================
+--- gdb-7.10.50.20160106.orig/gdb/nat/linux-ptrace.h	2016-01-08 19:15:57.581707950 +0100
++++ gdb-7.10.50.20160106/gdb/nat/linux-ptrace.h	2016-01-08 19:16:02.655736251 +0100
+@@ -164,6 +164,7 @@
+ extern char *linux_ptrace_attach_fail_reason_string (ptid_t ptid, int err);
+ 
+ extern void linux_ptrace_init_warnings (void);
++extern void linux_ptrace_create_warnings (struct buffer *buffer);
+ extern void linux_check_ptrace_features (void);
+ extern void linux_enable_event_reporting (pid_t pid, int attached);
+ extern void linux_disable_event_reporting (pid_t pid);
+Index: gdb-7.10.50.20160106/gdb/configure.ac
+===================================================================
+--- gdb-7.10.50.20160106.orig/gdb/configure.ac	2016-01-08 19:15:57.582707955 +0100
++++ gdb-7.10.50.20160106/gdb/configure.ac	2016-01-08 19:16:02.656736257 +0100
+@@ -2077,6 +2077,10 @@
+ esac
+ AC_DEFINE_UNQUOTED(GDBINIT,"$gdbinit",[The .gdbinit filename.])
+ 
++dnl Check security_get_boolean_active availability.
++AC_CHECK_HEADERS(selinux/selinux.h)
++AC_CHECK_LIB(selinux, security_get_boolean_active)
++
+ dnl Handle optional features that can be enabled.
+ 
+ # Support for --with-sysroot is a copy of GDB_AC_WITH_DIR,
+Index: gdb-7.10.50.20160106/gdb/gdbserver/configure.ac
+===================================================================
+--- gdb-7.10.50.20160106.orig/gdb/gdbserver/configure.ac	2016-01-08 19:15:57.582707955 +0100
++++ gdb-7.10.50.20160106/gdb/gdbserver/configure.ac	2016-01-08 19:16:02.656736257 +0100
+@@ -524,6 +524,10 @@
+    fi
+ fi
+ 
++dnl Check security_get_boolean_active availability.
++AC_CHECK_HEADERS(selinux/selinux.h)
++AC_CHECK_LIB(selinux, security_get_boolean_active)
++
+ AC_SUBST(GDBSERVER_DEPFILES)
+ AC_SUBST(GDBSERVER_LIBS)
+ AC_SUBST(srv_xmlbuiltin)
+Index: gdb-7.10.50.20160106/gdb/gdbserver/linux-low.c
+===================================================================
+--- gdb-7.10.50.20160106.orig/gdb/gdbserver/linux-low.c	2016-01-08 19:15:57.585707972 +0100
++++ gdb-7.10.50.20160106/gdb/gdbserver/linux-low.c	2016-01-08 19:16:02.658736268 +0100
+@@ -853,6 +853,29 @@
+   return lwp;
+ }
+ 
++/* Execute PTRACE_TRACEME with error checking.  */
++
++static void
++linux_traceme (const char *program)
++{
++  int save_errno;
++  struct buffer buffer;
++
++  errno = 0;
++  if (ptrace (PTRACE_TRACEME, 0,
++	      (PTRACE_TYPE_ARG3) 0, (PTRACE_TYPE_ARG4) 0) == 0)
++    return;
++
++  save_errno = errno;
++  buffer_init (&buffer);
++  linux_ptrace_create_warnings (&buffer);
++  buffer_grow_str0 (&buffer, "");
++  fprintf (stderr, _("%sCannot trace created process %s: %s.\n"),
++	   buffer_finish (&buffer), program, strerror (save_errno));
++  fflush (stderr);
++  _exit (0177);
++}
++
+ /* Start an inferior process and returns its pid.
+    ALLARGS is a vector of program-name and args. */
+ 
+@@ -876,7 +899,7 @@
+   if (pid == 0)
+     {
+       close_most_fds ();
+-      ptrace (PTRACE_TRACEME, 0, (PTRACE_TYPE_ARG3) 0, (PTRACE_TYPE_ARG4) 0);
++      linux_traceme (program);
+ 
+       setpgid (0, 0);
+ 
+Index: gdb-7.10.50.20160106/gdb/inf-ptrace.c
+===================================================================
+--- gdb-7.10.50.20160106.orig/gdb/inf-ptrace.c	2016-01-08 19:15:57.586707977 +0100
++++ gdb-7.10.50.20160106/gdb/inf-ptrace.c	2016-01-08 19:16:02.659736274 +0100
+@@ -79,7 +79,15 @@
+ inf_ptrace_me (void)
+ {
+   /* "Trace me, Dr. Memory!"  */
++  errno = 0;
+   ptrace (PT_TRACE_ME, 0, (PTRACE_TYPE_ARG3)0, 0);
++  if (errno != 0)
++    {
++      fprintf_unfiltered (gdb_stderr, _("Cannot create process: %s\n"),
++			  safe_strerror (errno));
++      gdb_flush (gdb_stderr);
++      _exit (0177);
++    }
+ }
+ 
+ /* Start a new inferior Unix child process.  EXEC_FILE is the file to
+Index: gdb-7.10.50.20160106/gdb/linux-nat.c
+===================================================================
+--- gdb-7.10.50.20160106.orig/gdb/linux-nat.c	2016-01-08 19:15:57.587707983 +0100
++++ gdb-7.10.50.20160106/gdb/linux-nat.c	2016-01-08 19:16:02.660736279 +0100
+@@ -1016,6 +1016,7 @@
+ {
+   struct cleanup *restore_personality
+     = maybe_disable_address_space_randomization (disable_randomization);
++  volatile struct gdb_exception ex;
+ 
+   /* The fork_child mechanism is synchronous and calls target_wait, so
+      we have to mask the async mode.  */
+@@ -1023,7 +1024,28 @@
+   /* Make sure we report all signals during startup.  */
+   linux_nat_pass_signals (ops, 0, NULL);
+ 
+-  linux_ops->to_create_inferior (ops, exec_file, allargs, env, from_tty);
++  TRY
++    {
++      linux_ops->to_create_inferior (ops, exec_file, allargs, env, from_tty);
++    }
++  CATCH (ex, RETURN_MASK_ERROR)
++    {
++      struct buffer buffer;
++      char *message, *buffer_s;
++
++      message = xstrdup (ex.message);
++      make_cleanup (xfree, message);
++
++      buffer_init (&buffer);
++      linux_ptrace_create_warnings (&buffer);
++
++      buffer_grow_str0 (&buffer, "");
++      buffer_s = buffer_finish (&buffer);
++      make_cleanup (xfree, buffer_s);
++
++      throw_error (ex.error, "%s%s", buffer_s, message);
++    }
++  END_CATCH
+ 
+   do_cleanups (restore_personality);
+ }
+Index: gdb-7.10.50.20160106/gdb/config.in
+===================================================================
+--- gdb-7.10.50.20160106.orig/gdb/config.in	2016-01-08 19:15:57.588707989 +0100
++++ gdb-7.10.50.20160106/gdb/config.in	2016-01-08 19:16:02.660736279 +0100
+@@ -264,6 +264,9 @@
+ /* Define if librpm library is being used. */
+ #undef HAVE_LIBRPM
+ 
++/* Define to 1 if you have the `selinux' library (-lselinux). */
++#undef HAVE_LIBSELINUX
++
+ /* Define to 1 if you have the <libunwind-ia64.h> header file. */
+ #undef HAVE_LIBUNWIND_IA64_H
+ 
+@@ -396,6 +399,9 @@
+ /* Define to 1 if you have the `scm_new_smob' function. */
+ #undef HAVE_SCM_NEW_SMOB
+ 
++/* Define to 1 if you have the <selinux/selinux.h> header file. */
++#undef HAVE_SELINUX_SELINUX_H
++
+ /* Define to 1 if you have the `setlocale' function. */
+ #undef HAVE_SETLOCALE
+ 
+Index: gdb-7.10.50.20160106/gdb/configure
+===================================================================
+--- gdb-7.10.50.20160106.orig/gdb/configure	2016-01-08 19:15:57.593708017 +0100
++++ gdb-7.10.50.20160106/gdb/configure	2016-01-08 19:16:02.665736307 +0100
+@@ -14653,6 +14653,64 @@
+ _ACEOF
+ 
+ 
++for ac_header in selinux/selinux.h
++do :
++  ac_fn_c_check_header_mongrel "$LINENO" "selinux/selinux.h" "ac_cv_header_selinux_selinux_h" "$ac_includes_default"
++if test "x$ac_cv_header_selinux_selinux_h" = x""yes; then :
++  cat >>confdefs.h <<_ACEOF
++#define HAVE_SELINUX_SELINUX_H 1
++_ACEOF
++
++fi
++
++done
++
++{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for security_get_boolean_active in -lselinux" >&5
++$as_echo_n "checking for security_get_boolean_active in -lselinux... " >&6; }
++if test "${ac_cv_lib_selinux_security_get_boolean_active+set}" = set; then :
++  $as_echo_n "(cached) " >&6
++else
++  ac_check_lib_save_LIBS=$LIBS
++LIBS="-lselinux  $LIBS"
++cat confdefs.h - <<_ACEOF >conftest.$ac_ext
++/* end confdefs.h.  */
++
++/* Override any GCC internal prototype to avoid an error.
++   Use char because int might match the return type of a GCC
++   builtin and then its argument prototype would still apply.  */
++#ifdef __cplusplus
++extern "C"
++#endif
++char security_get_boolean_active ();
++int
++main ()
++{
++return security_get_boolean_active ();
++  ;
++  return 0;
++}
++_ACEOF
++if ac_fn_c_try_link "$LINENO"; then :
++  ac_cv_lib_selinux_security_get_boolean_active=yes
++else
++  ac_cv_lib_selinux_security_get_boolean_active=no
++fi
++rm -f core conftest.err conftest.$ac_objext \
++    conftest$ac_exeext conftest.$ac_ext
++LIBS=$ac_check_lib_save_LIBS
++fi
++{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_selinux_security_get_boolean_active" >&5
++$as_echo "$ac_cv_lib_selinux_security_get_boolean_active" >&6; }
++if test "x$ac_cv_lib_selinux_security_get_boolean_active" = x""yes; then :
++  cat >>confdefs.h <<_ACEOF
++#define HAVE_LIBSELINUX 1
++_ACEOF
++
++  LIBS="-lselinux $LIBS"
++
++fi
++
++
+ 
+ # Support for --with-sysroot is a copy of GDB_AC_WITH_DIR,
+ # except that the argument to --with-sysroot is optional.
+Index: gdb-7.10.50.20160106/gdb/gdbserver/config.in
+===================================================================
+--- gdb-7.10.50.20160106.orig/gdb/gdbserver/config.in	2016-01-08 19:15:57.595708028 +0100
++++ gdb-7.10.50.20160106/gdb/gdbserver/config.in	2016-01-08 19:16:02.665736307 +0100
+@@ -117,6 +117,9 @@
+ /* Define to 1 if you have the `mcheck' library (-lmcheck). */
+ #undef HAVE_LIBMCHECK
+ 
++/* Define to 1 if you have the `selinux' library (-lselinux). */
++#undef HAVE_LIBSELINUX
++
+ /* Define if the target supports branch tracing. */
+ #undef HAVE_LINUX_BTRACE
+ 
+@@ -193,6 +196,9 @@
+ /* Define to 1 if you have the `pwrite' function. */
+ #undef HAVE_PWRITE
+ 
++/* Define to 1 if you have the <selinux/selinux.h> header file. */
++#undef HAVE_SELINUX_SELINUX_H
++
+ /* Define to 1 if you have the `setns' function. */
+ #undef HAVE_SETNS
+ 
+Index: gdb-7.10.50.20160106/gdb/gdbserver/configure
+===================================================================
+--- gdb-7.10.50.20160106.orig/gdb/gdbserver/configure	2016-01-08 19:15:57.597708039 +0100
++++ gdb-7.10.50.20160106/gdb/gdbserver/configure	2016-01-08 19:16:02.667736318 +0100
+@@ -7311,6 +7311,64 @@
+    fi
+ fi
+ 
++for ac_header in selinux/selinux.h
++do :
++  ac_fn_c_check_header_mongrel "$LINENO" "selinux/selinux.h" "ac_cv_header_selinux_selinux_h" "$ac_includes_default"
++if test "x$ac_cv_header_selinux_selinux_h" = x""yes; then :
++  cat >>confdefs.h <<_ACEOF
++#define HAVE_SELINUX_SELINUX_H 1
++_ACEOF
++
++fi
++
++done
++
++{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for security_get_boolean_active in -lselinux" >&5
++$as_echo_n "checking for security_get_boolean_active in -lselinux... " >&6; }
++if test "${ac_cv_lib_selinux_security_get_boolean_active+set}" = set; then :
++  $as_echo_n "(cached) " >&6
++else
++  ac_check_lib_save_LIBS=$LIBS
++LIBS="-lselinux  $LIBS"
++cat confdefs.h - <<_ACEOF >conftest.$ac_ext
++/* end confdefs.h.  */
++
++/* Override any GCC internal prototype to avoid an error.
++   Use char because int might match the return type of a GCC
++   builtin and then its argument prototype would still apply.  */
++#ifdef __cplusplus
++extern "C"
++#endif
++char security_get_boolean_active ();
++int
++main ()
++{
++return security_get_boolean_active ();
++  ;
++  return 0;
++}
++_ACEOF
++if ac_fn_c_try_link "$LINENO"; then :
++  ac_cv_lib_selinux_security_get_boolean_active=yes
++else
++  ac_cv_lib_selinux_security_get_boolean_active=no
++fi
++rm -f core conftest.err conftest.$ac_objext \
++    conftest$ac_exeext conftest.$ac_ext
++LIBS=$ac_check_lib_save_LIBS
++fi
++{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_selinux_security_get_boolean_active" >&5
++$as_echo "$ac_cv_lib_selinux_security_get_boolean_active" >&6; }
++if test "x$ac_cv_lib_selinux_security_get_boolean_active" = x""yes; then :
++  cat >>confdefs.h <<_ACEOF
++#define HAVE_LIBSELINUX 1
++_ACEOF
++
++  LIBS="-lselinux $LIBS"
++
++fi
++
++
+ 
+ 
+ 
