@@ -22,13 +22,13 @@ Name: %{?scl_prefix}gdb
 %global snapsrc    20160801
 # See timestamp of source gnulib installed into gdb/gnulib/ .
 %global snapgnulib 20150822
-%global tardate 20160904
+%global tardate 20160907
 %global tarname gdb-7.11.90.%{tardate}
 Version: 7.12
 
 # The release always contains a leading reserved number, start it at 1.
 # `upstream' is not a part of `name' to stay fully rpm dependencies compatible for the testing.
-Release: 0.10.%{tardate}%{?dist}
+Release: 0.13.%{tardate}%{?dist}
 
 License: GPLv3+ and GPLv3+ with exceptions and GPLv2+ and GPLv2+ with exceptions and GPL+ and LGPLv2+ and BSD and Public Domain and GFDL
 Group: Development/Debuggers
@@ -521,16 +521,8 @@ Patch848: gdb-dts-rhel6-python-compat.patch
 Patch852: gdb-gnat-dwarf-crash-3of3.patch
 
 # VLA (Fortran dynamic arrays) from Intel + archer-jankratochvil-vla tests.
-Patch1058: gdb-vla-intel-branch.patch
-Patch1059: gdb-vla-intel-branch-fix-stride-1of2.patch
-Patch1060: gdb-vla-intel-branch-fix-stride-2of2.patch
-Patch1132: gdb-vla-intel-1of7.patch
-Patch1133: gdb-vla-intel-2of7.patch
-Patch1134: gdb-vla-intel-3of7.patch
-Patch1135: gdb-vla-intel-4of7.patch
-Patch1136: gdb-vla-intel-5of7.patch
-Patch1137: gdb-vla-intel-6of7.patch
-Patch1138: gdb-vla-intel-7of7.patch
+Patch1058: gdb-vla-intel-fortran-strides.patch
+Patch1132: gdb-vla-intel-fortran-vla-strings.patch
 Patch889: gdb-vla-intel-stringbt-fix.patch
 Patch887: gdb-archer-vla-tests.patch
 Patch888: gdb-vla-intel-tests.patch
@@ -581,6 +573,9 @@ Patch1123: gdb-rhbz1325795-framefilters-test.patch
 
 # [dts+el7] [x86*] Bundle linux_perf.h for libipt (RH BZ 1256513).
 Patch1143: gdb-linux_perf-bundle.patch
+
+# [rhel6+7] Fix compatibility of bison <3.1 and gcc >=6.
+Patch1144: gdb-bison-old.patch
 
 %if 0%{!?rhel:1} || 0%{?rhel} > 6
 # RL_STATE_FEDORA_GDB would not be found for:
@@ -786,15 +781,7 @@ find -name "*.info*"|xargs rm -f
 #patch232 -p1
 %patch349 -p1
 %patch1058 -p1
-%patch1059 -p1
-%patch1060 -p1
 %patch1132 -p1
-%patch1133 -p1
-%patch1134 -p1
-%patch1135 -p1
-%patch1136 -p1
-%patch1137 -p1
-%patch1138 -p1
 %patch889 -p1
 %patch1 -p1
 
@@ -918,6 +905,7 @@ done
 %patch1120 -p1
 %patch1123 -p1
 %patch1143 -p1
+%patch1144 -p1
 
 %patch1075 -p1
 %if 0%{?rhel:1} && 0%{?rhel} <= 7
@@ -1464,6 +1452,16 @@ then
 fi
 
 %changelog
+* Wed Sep  7 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-0.13.20160907.fc25
+- Rebase to FSF GDB 7.11.90.20160907 (pre-7.12 branch snapshot).
+- Rebase Intel VLA patchset.
+
+* Wed Sep  7 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-0.12.20160904.fc25
+- [rhel6+7] Fix compatibility of bison <3.1 and gcc >=6.
+
+* Sun Sep  4 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-0.11.20160904.fc25
+- Release bump for a mistaken build.
+
 * Sun Sep  4 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-0.10.20160904.fc25
 - Fix libipt bundling in 7.12.
 
