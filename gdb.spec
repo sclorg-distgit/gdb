@@ -15,7 +15,6 @@
  %global _root_libdir %{_libdir}
 }
 
-Summary: A GNU source-level debugger for C, C++, Fortran, Go and other languages
 Name: %{?scl_prefix}gdb
 
 # Freeze it when GDB gets branched
@@ -28,7 +27,7 @@ Version: 7.12
 
 # The release always contains a leading reserved number, start it at 1.
 # `upstream' is not a part of `name' to stay fully rpm dependencies compatible for the testing.
-Release: 0.13.%{tardate}%{?dist}
+Release: 0.16.%{tardate}%{?dist}
 
 License: GPLv3+ and GPLv3+ with exceptions and GPLv2+ and GPLv2+ with exceptions and GPL+ and LGPLv2+ and BSD and Public Domain and GFDL
 Group: Development/Debuggers
@@ -41,6 +40,25 @@ URL: http://gnu.org/software/gdb/
 # For our convenience
 %global gdb_src %{tarname}
 %global gdb_build build-%{_target_platform}
+
+# For DTS RHEL<=7 GDB it is better to use none than a Requires dependency.
+%if 0%{!?rhel:1} || 0%{?rhel} > 7
+Recommends: %{?scl_prefix}gcc-gdb-plugin%{?_isa}
+%endif
+
+%if 0%{!?scl:1}
+Summary: A stub package for GNU source-level debugger
+Requires: gdb-headless%{?_isa} = %{version}-%{release}
+
+%description
+'gdb' package is only a stub to install gcc-gdb-plugin for 'compile' commands.
+See package 'gdb-headless'.
+
+%package headless
+Group: Development/Debuggers
+%endif
+
+Summary: A GNU source-level debugger for C, C++, Fortran, Go and other languages
 
 # Make sure we get rid of the old package gdb64, now that we have unified
 # support for 32-64 bits in one single 64-bit gdb.
@@ -70,7 +88,6 @@ Provides: bundled(md5-gcc) = %{snapsrc}
 %global buildisa %{?_with_buildisa:%{?_isa}}
 
 %if 0%{!?rhel:1} || 0%{?rhel} > 7
-Recommends: gcc-gdb-plugin%{?_isa}
 Recommends: dnf-command(debuginfo-install)
 # https://bugzilla.redhat.com/show_bug.cgi?id=1209492
 Recommends: default-yama-scope
@@ -247,7 +264,7 @@ Patch231: gdb-6.3-bz202689-exec-from-pthread-test.patch
 
 # Backported fixups post the source tarball.
 #Xdrop: Just backports.
-#Patch232: gdb-upstream.patch
+Patch232: gdb-upstream.patch
 
 # Testcase for PPC Power6/DFP instructions disassembly (BZ 230000).
 #=fedoratest+ppc
@@ -577,6 +594,10 @@ Patch1143: gdb-linux_perf-bundle.patch
 # [rhel6+7] Fix compatibility of bison <3.1 and gcc >=6.
 Patch1144: gdb-bison-old.patch
 
+# [testsuite] More testsuite fixes.
+Patch1145: gdb-testsuite-casts.patch
+Patch1146: gdb-testsuite-m-static.patch
+
 %if 0%{!?rhel:1} || 0%{?rhel} > 6
 # RL_STATE_FEDORA_GDB would not be found for:
 # Patch642: gdb-readline62-ask-more-rh.patch
@@ -658,10 +679,7 @@ BuildRequires: gcc-java libgcj%{bits_local} libgcj%{bits_other}
 BuildRequires: zlib-devel%{bits_local} zlib-devel%{bits_other}
 %endif
 %if 0%{!?rhel:1} || 0%{?rhel} > 6
-# These Fedoras do not yet have gcc-go built.
-%ifnarch ppc64le aarch64
 BuildRequires: gcc-go
-%endif
 %endif
 # archer-sergiodj-stap-patch-split
 BuildRequires: systemtap-sdt-devel
@@ -685,8 +703,8 @@ BuildRequires: opencl-headers ocl-icd-devel%{bits_local} ocl-icd-devel%{bits_oth
 BuildRequires: fpc
 %endif
 %endif
-# Copied from gcc-4.1.2-32.
-%ifarch %{ix86} x86_64 ppc alpha
+# Copied from: gcc-6.2.1-1.fc26
+%ifarch %{ix86} x86_64 ia64 ppc %{power64} alpha s390x %{arm} aarch64
 BuildRequires: gcc-gnat
 BuildRequires: libgnat%{bits_local} libgnat%{bits_other}
 %endif
@@ -696,20 +714,19 @@ BuildRequires: libgfortran%{bits_local} libgfortran%{bits_other}
 # libstdc++-devel of matching bits is required only for g++ -static.
 BuildRequires: libstdc++%{bits_local} libstdc++%{bits_other}
 %if 0%{!?rhel:1} || 0%{?rhel} > 6
+%if 0%{!?rhel:1} || 0%{?rhel} > 7
 BuildRequires: libquadmath%{bits_local} libquadmath%{bits_other}
-# These Fedoras do not yet have gcc-go built.
-%ifnarch ppc64le aarch64
-BuildRequires: libgo-devel%{bits_local} libgo-devel%{bits_other}
+%else
+%ifarch %{ix86} x86_64
+BuildRequires: libquadmath%{bits_local} libquadmath%{bits_other}
 %endif
+%endif
+BuildRequires: libgo-devel%{bits_local} libgo-devel%{bits_other}
 %endif
 BuildRequires: glibc-static%{bits_local}
 # multilib glibc-static is open Bug 488472:
 #BuildRequires: glibc-static%{bits_other}
-# Copied from valgrind-3.5.0-1.
-# Valgrind is not yet ported to ppc64le.
-%ifarch %{ix86} x86_64 ppc ppc64
 BuildRequires: valgrind%{bits_local} valgrind%{bits_other}
-%endif
 %if 0%{!?rhel:1} || 0%{?rhel} > 6
 BuildRequires: xz
 %endif
@@ -718,7 +735,11 @@ BuildRequires: xz
 
 %{?scl:Requires:%scl_runtime}
 
+%if 0%{!?scl:1}
+%description headless
+%else
 %description
+%endif
 GDB, the GNU debugger, allows you to debug programs written in C, C++,
 Java, and other languages, by executing them in a controlled fashion
 and printing their data.
@@ -778,7 +799,7 @@ find -name "*.info*"|xargs rm -f
 # Match the Fedora's version info.
 %patch2 -p1
 
-#patch232 -p1
+%patch232 -p1
 %patch349 -p1
 %patch1058 -p1
 %patch1132 -p1
@@ -906,6 +927,8 @@ done
 %patch1123 -p1
 %patch1143 -p1
 %patch1144 -p1
+%patch1145 -p1
+%patch1146 -p1
 
 %patch1075 -p1
 %if 0%{?rhel:1} && 0%{?rhel} <= 7
@@ -1233,6 +1256,12 @@ rm -rf $RPM_BUILD_ROOT
 
 make %{?_smp_mflags} install DESTDIR=$RPM_BUILD_ROOT
 
+%if 0%{!?scl:1}
+mkdir -p $RPM_BUILD_ROOT%{_prefix}/libexec
+mv -f $RPM_BUILD_ROOT%{_bindir}/gdb $RPM_BUILD_ROOT%{_prefix}/libexec/gdb
+ln -s -r $RPM_BUILD_ROOT%{_prefix}/libexec/gdb $RPM_BUILD_ROOT%{_bindir}/gdb
+%endif
+
 # Provide gdbtui for RHEL-5 and RHEL-6 as it is removed upstream (BZ 797664).
 %if 0%{?rhel:1} && 0%{?rhel} <= 6
 test ! -e $RPM_BUILD_ROOT%{_prefix}/bin/gdbtui
@@ -1364,9 +1393,14 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
+%{_bindir}/gdb
+%if 0%{!?scl:1}
+%files headless
+%defattr(-,root,root)
+%{_prefix}/libexec/gdb
+%endif
 %doc COPYING3 COPYING COPYING.LIB README NEWS
 %{_bindir}/gcore
-%{_bindir}/gdb
 %config(noreplace) %{_sysconfdir}/gdbinit
 %{_sysconfdir}/gdbinit.d
 %{_mandir}/*/gdbinit.5*
@@ -1452,6 +1486,15 @@ then
 fi
 
 %changelog
+* Wed Sep 14 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-0.16.20160907.fc25
+- Provide gdb-headless package (RH BZ 1195005).
+
+* Mon Sep 12 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-0.15.20160907.fc25
+- [testsuite] More testsuite fixes.
+
+* Mon Sep 12 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-0.14.20160907.fc25
+- Various mostly testsuite compatibility and regression fixes.
+
 * Wed Sep  7 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-0.13.20160907.fc25
 - Rebase to FSF GDB 7.11.90.20160907 (pre-7.12 branch snapshot).
 - Rebase Intel VLA patchset.
