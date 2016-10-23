@@ -19,15 +19,15 @@ Summary: A GNU source-level debugger for C, C++, Fortran, Go and other languages
 Name: %{?scl_prefix}gdb
 
 # Freeze it when GDB gets branched
-%global snapsrc    20160210
+%global snapsrc    20160801
 # See timestamp of source gnulib installed into gdb/gnulib/ .
 %global snapgnulib 20150822
-%global tarname gdb-%{version}
-Version: 7.11.1
+%global tarname gdb-7.11.90.20160904
+Version: 7.12
 
 # The release always contains a leading reserved number, start it at 1.
 # `upstream' is not a part of `name' to stay fully rpm dependencies compatible for the testing.
-Release: 83%{?dist}
+Release: 9%{?dist}
 
 License: GPLv3+ and GPLv3+ with exceptions and GPLv2+ and GPLv2+ with exceptions and GPL+ and LGPLv2+ and BSD and Public Domain and GFDL
 Group: Development/Debuggers
@@ -280,6 +280,8 @@ Patch271: gdb-6.5-bz243845-stale-testing-zombie-test.patch
 #=push
 Patch274: gdb-6.6-buildid-locate.patch
 # Fix loading of core files without build-ids but with build-ids in executables.
+# Load strictly build-id-checked core files only if no executable is specified
+# (Jan Kratochvil, RH BZ 1339862).
 #=push
 Patch659: gdb-6.6-buildid-locate-solib-missing-ids.patch
 #=push
@@ -518,18 +520,19 @@ Patch848: gdb-dts-rhel6-python-compat.patch
 Patch852: gdb-gnat-dwarf-crash-3of3.patch
 
 # VLA (Fortran dynamic arrays) from Intel + archer-jankratochvil-vla tests.
-Patch1058: gdb-fortran-stride-intel-1of6.patch
-Patch1059: gdb-fortran-stride-intel-2of6.patch
-Patch1060: gdb-fortran-stride-intel-3of6.patch
-Patch1061: gdb-fortran-stride-intel-4of6.patch
-Patch1062: gdb-fortran-stride-intel-5of6.patch
-Patch1063: gdb-fortran-stride-intel-6of6.patch
-Patch888: gdb-vla-intel.patch
-Patch983: gdb-vla-intel-logical-not.patch
+Patch1058: gdb-vla-intel-branch.patch
+Patch1059: gdb-vla-intel-branch-fix-stride-1of2.patch
+Patch1060: gdb-vla-intel-branch-fix-stride-2of2.patch
+Patch1132: gdb-vla-intel-1of7.patch
+Patch1133: gdb-vla-intel-2of7.patch
+Patch1134: gdb-vla-intel-3of7.patch
+Patch1135: gdb-vla-intel-4of7.patch
+Patch1136: gdb-vla-intel-5of7.patch
+Patch1137: gdb-vla-intel-6of7.patch
+Patch1138: gdb-vla-intel-7of7.patch
 Patch889: gdb-vla-intel-stringbt-fix.patch
-Patch912: gdb-vla-intel-04of23-fix.patch
 Patch887: gdb-archer-vla-tests.patch
-Patch1069: gdb-fortran-stride-intel-6of6-nokfail.patch
+Patch888: gdb-vla-intel-tests.patch
 
 # Continue backtrace even if a frame filter throws an exception (Phil Muldoon).
 Patch918: gdb-btrobust.patch
@@ -574,14 +577,6 @@ Patch1120: gdb-testsuite-dw2-undefined-ret-addr.patch
 
 # New test for Python "Cannot locate object file for block" (for RH BZ 1325795).
 Patch1123: gdb-rhbz1325795-framefilters-test.patch
-
-# Import bare DW_TAG_lexical_block (RH BZ 1325396).
-Patch1128: gdb-bare-DW_TAG_lexical_block-1of2.patch
-Patch1129: gdb-bare-DW_TAG_lexical_block-2of2.patch
-
-# [aarch64] Fix ARMv8.1/v8.2 for hw watchpoint and breakpoint
-# (Andrew Pinski, RH BZ 1363635).
-Patch1141: gdb-rhbz1363635-aarch64-armv8182.patch
 
 # [dts+el7] [x86*] Bundle linux_perf.h for libipt (RH BZ 1256513).
 Patch1143: gdb-linux_perf-bundle.patch
@@ -792,13 +787,14 @@ find -name "*.info*"|xargs rm -f
 %patch1058 -p1
 %patch1059 -p1
 %patch1060 -p1
-%patch1061 -p1
-%patch1062 -p1
-%patch1063 -p1
-%patch888 -p1
-%patch983 -p1
+%patch1132 -p1
+%patch1133 -p1
+%patch1134 -p1
+%patch1135 -p1
+%patch1136 -p1
+%patch1137 -p1
+%patch1138 -p1
 %patch889 -p1
-%patch912 -p1
 %patch1 -p1
 
 %patch105 -p1
@@ -892,7 +888,7 @@ find -name "*.info*"|xargs rm -f
 %patch852 -p1
 %patch863 -p1
 %patch887 -p1
-%patch1069 -p1
+%patch888 -p1
 %patch918 -p1
 %patch925 -p1
 %patch927 -p1
@@ -902,6 +898,16 @@ find -name "*.info*"|xargs rm -f
 %patch1056 -p1
 %patch1073 -p1
 %patch848 -p1
+%if 0%{!?el6:1}
+for i in \
+  gdb/python/lib/gdb/FrameWrapper.py \
+  gdb/python/lib/gdb/backtrace.py \
+  gdb/python/lib/gdb/command/backtrace.py \
+  ;do
+  test -e $i
+  : >$i
+done
+%endif
 %patch833 -p1
 %patch642 -p1
 %patch337 -p1
@@ -910,9 +916,6 @@ find -name "*.info*"|xargs rm -f
 %patch1118 -p1
 %patch1120 -p1
 %patch1123 -p1
-%patch1128 -p1
-%patch1129 -p1
-%patch1141 -p1
 %patch1143 -p1
 
 %patch1075 -p1
@@ -996,6 +999,8 @@ CFLAGS="$CFLAGS -DNEED_RL_STATE_FEDORA_GDB"
 CFLAGS="$CFLAGS -DNEED_DETACH_SIGSTOP"
 %endif
 
+export CXXFLAGS="$CFLAGS"
+
 %if 0%{have_libipt} && 0%{?el7:1} && 0%{?scl:1}
 (
  mkdir processor-trace-%{libipt_version}-root
@@ -1025,6 +1030,7 @@ LDFLAGS="$LDFLAGS -L$PWD/processor-trace-%{libipt_version}-root%{_libdir}"
 	--with-system-gdbinit=%{_sysconfdir}/gdbinit		\
 	--with-gdb-datadir=%{_datadir}/gdb			\
 	--enable-gdb-build-warnings=,-Wno-unused		\
+	--enable-build-with-cxx					\
 %ifnarch %{ix86} alpha ppc s390 s390x x86_64 ppc64 ppc64le sparc sparcv9 sparc64 %{arm} aarch64
 	--disable-werror					\
 %else
@@ -1457,6 +1463,19 @@ then
 fi
 
 %changelog
+* Sun Sep  4 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-0.9.20160904.fc25
+- Rebase to FSF GDB 7.11.90.20160904 (pre-7.12 branch snapshot).
+- Make Version tag 7.12; but it is still a pre-release.
+
+* Mon Aug 29 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.11.90.20160829-8.fc25
+- Rebase to FSF GDB 7.11.90.20160829 (pre-7.12 branch snapshot).
+
+* Fri Aug 26 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.11.90.20160807-7.fc25
+- Fix Intel VLA patchset regression: dynamic.exp: p varw filled
+
+* Tue Aug 23 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.11.90.20160807-6.fc25
+- Merge Fedora packaging changes from Fedora 24 gdb-7.11.1-83.fc24:
+
 * Tue Aug 23 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.11.1-83.fc24
 - [dts+el7] [x86*] Bundle libipt - fix#3 its initialization (RH BZ 1256513).
 
@@ -1475,9 +1494,21 @@ fi
 * Wed Aug 17 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.11.1-78.fc24
 - [dts+el7] [x86*] Bundle libipt (RH BZ 1256513).
 
-* Wed Aug  3 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.11.1-77.fc24
-- [aarch64] Fix ARMv8.1/v8.2 for hw watchpoint and breakpoint
-  (Andrew Pinski, RH BZ 1363635).
+* Sun Aug  7 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.11.90.20160807-5.fc25
+- Rebase to FSF GDB 7.11.90.20160807 (pre-7.12 branch snapshot).
+
+* Sun Jul 31 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.11.50.20160721-4.fc25
+- Testcase for: Load strictly build-id-checked core files only if no executable
+  is specified (Jan Kratochvil, RH BZ 1339862).
+
+* Thu Jul 28 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.11.50.20160721-3.fc25
+- Do not apply RHEL-6 patches on non-RHEL-6 even for testsuite.
+
+* Thu Jul 21 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.11.50.20160721-2.fc25
+- Rebase to FSF GDB 7.11.50.20160721 (pre-7.12 trunk snapshot).
+
+* Sun Jul 17 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.11.50.20160716-1.fc25
+- Rebase to FSF GDB 7.11.50.20160716 (pre-7.12 trunk snapshot).
 
 * Mon Jun 27 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.11.1-76.fc24
 - Test 'info type-printers' Python error (RH BZ 1350436).
