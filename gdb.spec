@@ -21,13 +21,12 @@ Name: %{?scl_prefix}gdb
 %global snapsrc    20160801
 # See timestamp of source gnulib installed into gdb/gnulib/ .
 %global snapgnulib 20150822
-%global tardate 20160907
-%global tarname gdb-7.11.90.%{tardate}
+%global tarname gdb-%{version}
 Version: 7.12
 
 # The release always contains a leading reserved number, start it at 1.
 # `upstream' is not a part of `name' to stay fully rpm dependencies compatible for the testing.
-Release: 0.17.%{tardate}%{?dist}
+Release: 24%{?dist}
 
 License: GPLv3+ and GPLv3+ with exceptions and GPLv2+ and GPLv2+ with exceptions and GPL+ and LGPLv2+ and BSD and Public Domain and GFDL
 Group: Development/Debuggers
@@ -85,7 +84,11 @@ Provides: bundled(binutils) = %{snapsrc}
 Provides: bundled(md5-gcc) = %{snapsrc}
 
 # https://fedoraproject.org/wiki/Packaging:Guidelines#BuildRequires_and_.25.7B_isa.7D
-%global buildisa %{?_with_buildisa:%{?_isa}}
+%if 0%{?_with_buildisa:1} || 0%{?_with_testsuite:1}
+%global buildisa %{?_isa}
+%else
+%global buildisa %{nil}
+%endif
 
 %if 0%{!?rhel:1} || 0%{?rhel} > 7
 Recommends: dnf-command(debuginfo-install)
@@ -323,6 +326,10 @@ Patch282: gdb-6.7-charsign-test.patch
 #=fedoratest+ppc
 Patch284: gdb-6.7-ppc-clobbered-registers-O2-test.patch
 
+# Testsuite fixes for more stable/comparable results.
+#=fedoratest
+Patch287: gdb-6.7-testsuite-stable-results.patch
+
 # Test ia64 memory leaks of the code using libunwind.
 #=fedoratest
 Patch289: gdb-6.5-ia64-libunwind-leak-test.patch
@@ -559,6 +566,10 @@ Patch978: gdb-jit-reader-multilib.patch
 # Test 'info type-printers' Python error (RH BZ 1350436).
 Patch992: gdb-rhbz1350436-type-printers-error.patch
 
+# Fix '[ppc64] and [s390x] wrong prologue skip on -O2 -g code' (Jan
+# Kratochvil, RH BZ 1084404).
+Patch1026: gdb-rhbz1084404-ppc64-s390x-wrong-prologue-skip-O2-g-3of3.patch
+
 # Never kill PID on: gdb exec PID (Jan Kratochvil, RH BZ 1219747).
 Patch1053: gdb-bz1219747-attach-kills.patch
 
@@ -582,9 +593,6 @@ Patch1113: gdb-rhbz1261564-aarch64-hw-watchpoint-test.patch
 # Add messages suggesting more recent RHEL gdbserver (RH BZ 1321114).
 Patch1118: gdb-container-rh-pkg.patch
 
-# [testsuite] Fix 7.11 regression: gdb.dwarf2/dw2-undefined-ret-addr.exp
-Patch1120: gdb-testsuite-dw2-undefined-ret-addr.patch
-
 # New test for Python "Cannot locate object file for block" (for RH BZ 1325795).
 Patch1123: gdb-rhbz1325795-framefilters-test.patch
 
@@ -597,6 +605,13 @@ Patch1144: gdb-bison-old.patch
 # [testsuite] More testsuite fixes.
 Patch1145: gdb-testsuite-casts.patch
 Patch1146: gdb-testsuite-m-static.patch
+
+# [aarch64] Fix gdb.cp/nextoverthrow.exp regression (Yao Qi).
+Patch1148: gdb-aarch64-nextoverthrow.patch
+
+# Fix TLS (such as 'errno') regression.
+Patch1149: gdb-tls-1of2.patch
+Patch1150: gdb-tls-2of2.patch
 
 %if 0%{!?rhel:1} || 0%{?rhel} > 6
 # RL_STATE_FEDORA_GDB would not be found for:
@@ -678,8 +693,17 @@ BuildRequires: gcc-java libgcj%{bits_local} libgcj%{bits_other}
 # for gcc-java linkage:
 BuildRequires: zlib-devel%{bits_local} zlib-devel%{bits_other}
 %endif
+# Exception for RHEL<=7
+%ifarch aarch64
+%if 0%{!?rhel:1} || 0%{?rhel} > 7
+BuildRequires: gcc-go
+BuildRequires: libgo-devel%{bits_local} libgo-devel%{bits_other}
+%endif
+%else
 %if 0%{!?rhel:1} || 0%{?rhel} > 6
 BuildRequires: gcc-go
+BuildRequires: libgo-devel%{bits_local} libgo-devel%{bits_other}
+%endif
 %endif
 # archer-sergiodj-stap-patch-split
 BuildRequires: systemtap-sdt-devel
@@ -704,9 +728,17 @@ BuildRequires: fpc
 %endif
 %endif
 # Copied from: gcc-6.2.1-1.fc26
+# Exception for RHEL<=7
+%ifarch s390x
+%if 0%{!?rhel:1} || 0%{?rhel} > 7
+BuildRequires: gcc-gnat
+BuildRequires: libgnat%{bits_local} libgnat%{bits_other}
+%endif
+%else
 %ifarch %{ix86} x86_64 ia64 ppc %{power64} alpha s390x %{arm} aarch64
 BuildRequires: gcc-gnat
 BuildRequires: libgnat%{bits_local} libgnat%{bits_other}
+%endif
 %endif
 BuildRequires: glibc-devel%{bits_local} glibc-devel%{bits_other}
 BuildRequires: libgcc%{bits_local} libgcc%{bits_other}
@@ -721,12 +753,19 @@ BuildRequires: libquadmath%{bits_local} libquadmath%{bits_other}
 BuildRequires: libquadmath%{bits_local} libquadmath%{bits_other}
 %endif
 %endif
-BuildRequires: libgo-devel%{bits_local} libgo-devel%{bits_other}
 %endif
 BuildRequires: glibc-static%{bits_local}
 # multilib glibc-static is open Bug 488472:
 #BuildRequires: glibc-static%{bits_other}
+# Exception for RHEL<=7
+%ifarch s390x
+BuildRequires: valgrind%{bits_local}
+%if 0%{!?rhel:1} || 0%{?rhel} > 7
 BuildRequires: valgrind%{bits_local} valgrind%{bits_other}
+%endif
+%else
+BuildRequires: valgrind%{bits_local} valgrind%{bits_other}
+%endif
 %if 0%{!?rhel:1} || 0%{?rhel} > 6
 BuildRequires: xz
 %endif
@@ -846,6 +885,7 @@ find -name "*.info*"|xargs rm -f
 %patch353 -p1
 %patch282 -p1
 %patch284 -p1
+%patch287 -p1
 %patch289 -p1
 %patch290 -p1
 %patch294 -p1
@@ -907,6 +947,7 @@ find -name "*.info*"|xargs rm -f
 %patch927 -p1
 %patch978 -p1
 %patch992 -p1
+%patch1026 -p1
 %patch1053 -p1
 %patch1056 -p1
 %patch1073 -p1
@@ -927,12 +968,14 @@ done
 %patch331 -p1
 %patch1113 -p1
 %patch1118 -p1
-%patch1120 -p1
 %patch1123 -p1
 %patch1143 -p1
 %patch1144 -p1
 %patch1145 -p1
 %patch1146 -p1
+%patch1148 -p1
+%patch1149 -p1
+%patch1150 -p1
 
 %patch1075 -p1
 %if 0%{?rhel:1} && 0%{?rhel} <= 7
@@ -1490,6 +1533,30 @@ then
 fi
 
 %changelog
+* Wed Oct 12 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-24.fc25
+- Fix TLS (such as 'errno') regression.
+
+* Wed Oct 12 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-23.fc25
+- [testsuite] Various testsuite fixes.
+- [aarch64] Fix gdb.cp/nextoverthrow.exp regression (Yao Qi).
+
+* Fri Oct  7 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-22.fc25
+- Fix .spec build: error: Macro %%buildisa has empty body
+
+* Fri Oct  7 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-21.fc25
+- Rebase to FSF GDB 7.12.
+
+* Thu Oct  6 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-0.20.20161006.fc25
+- Rebase to FSF GDB 7.11.90.20161006 (pre-7.12 branch snapshot).
+
+* Thu Sep 29 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-0.19.20160929.fc25
+- Rebase to FSF GDB 7.11.90.20160929 (pre-7.12 branch snapshot).
+ - Fixes GDB crashes on inf. function call scripts (RH BZ 1378147, Pedro Alves).
+
+* Wed Sep 28 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-0.18.20160928.fc25
+- Fix attachment of JIT-debug-enabled inf. (7.11.1 regression, RH BZ 1375553).
+- Rebase to FSF GDB 7.11.90.20160928 (pre-7.12 branch snapshot).
+
 * Wed Sep 14 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-0.17.20160907.fc25
 - Fix description empty lines.
 
