@@ -22,11 +22,11 @@ Name: %{?scl_prefix}gdb
 # See timestamp of source gnulib installed into gdb/gnulib/ .
 %global snapgnulib 20150822
 %global tarname gdb-%{version}
-Version: 7.12
+Version: 7.12.1
 
 # The release always contains a leading reserved number, start it at 1.
 # `upstream' is not a part of `name' to stay fully rpm dependencies compatible for the testing.
-Release: 24%{?dist}
+Release: 46%{?dist}
 
 License: GPLv3+ and GPLv3+ with exceptions and GPLv2+ and GPLv2+ with exceptions and GPL+ and LGPLv2+ and BSD and Public Domain and GFDL
 Group: Development/Debuggers
@@ -46,6 +46,12 @@ Recommends: %{?scl_prefix}gcc-gdb-plugin%{?_isa}
 %endif
 
 %if 0%{!?scl:1}
+# when manpages were moved from -headless to main
+# https://bugzilla.redhat.com/show_bug.cgi?id=1402554
+# theoretically should not be required due to versioned dependeny
+# below, but it cannot hurt either -- rdieter
+Conflicts: gdb-headless < 7.12-29
+
 Summary: A stub package for GNU source-level debugger
 Requires: gdb-headless%{?_isa} = %{version}-%{release}
 
@@ -65,10 +71,11 @@ Summary: A GNU source-level debugger for C, C++, Fortran, Go and other languages
 Obsoletes: gdb64 < 5.3.91
 %endif
 
+%ifarch %{arm}
 %global have_inproctrace 0
-%ifarch %{ix86} x86_64
+%else
 %global have_inproctrace 1
-%endif # %{ix86} x86_64
+%endif
 
 # gdb-add-index cannot be run even for SCL package on RHEL<=6.
 %if 0%{!?rhel:1} || 0%{?rhel} > 6
@@ -143,7 +150,7 @@ Source3: gdb-gstack.man
 Source4: gdbinit
 
 # libstdc++ pretty printers from GCC SVN.
-%global libstdcxxpython gdb-libstdc++-v3-python-6.1.1-20160817
+%global libstdcxxpython gdb-libstdc++-v3-python-6.3.1-20170212
 Source5: %{libstdcxxpython}.tar.xz
 
 # Provide gdbtui for RHEL-5 and RHEL-6 as it is removed upstream (BZ 797664).
@@ -475,6 +482,10 @@ Patch547: gdb-test-dw2-aranges.patch
 #=fedoratest
 Patch548: gdb-test-expr-cumulative-archer.patch
 
+# Fix regressions on C++ names resolving (PR 11734, PR 12273, Keith Seitz).
+Patch565: gdb-physname-pr11734-test.patch
+Patch567: gdb-physname-pr12273-test.patch
+
 # Toolchain on sparc is slightly broken and debuginfo files are generated
 # with non 64bit aligned tables/offsets.
 # See for example readelf -S ../Xvnc.debug.
@@ -488,6 +499,9 @@ Patch548: gdb-test-expr-cumulative-archer.patch
 # rebuild to fix it, we need to be able to use gdb :)
 #=push+work
 Patch579: gdb-7.2.50-sparc-add-workaround-to-broken-debug-files.patch
+
+# Test GDB opcodes/ disassembly of Intel Ivy Bridge instructions (BZ 696890).
+Patch616: gdb-test-ivy-bridge.patch
 
 # Work around PR libc/13097 "linux-vdso.so.1" warning message.
 #=push
@@ -544,6 +558,9 @@ Patch848: gdb-dts-rhel6-python-compat.patch
 # Fix crash of -readnow /usr/lib/debug/usr/bin/gnatbind.debug (BZ 1069211).
 Patch852: gdb-gnat-dwarf-crash-3of3.patch
 
+# Fix 'memory leak in infpy_read_memory()' (RH BZ 1007614)
+Patch861: gdb-rhbz1007614-memleak-infpy_read_memory-test.patch
+
 # VLA (Fortran dynamic arrays) from Intel + archer-jankratochvil-vla tests.
 Patch1058: gdb-vla-intel-fortran-strides.patch
 Patch1132: gdb-vla-intel-fortran-vla-strings.patch
@@ -560,8 +577,21 @@ Patch925: gdb-fortran-frame-string.patch
 # Fix Python GIL with gdb.execute("continue") (Phil Muldoon, BZ 1116957).
 Patch927: gdb-python-gil.patch
 
+# Testcase for '[SAP] Recursive dlopen causes SAP HANA installer to
+# crash.' (RH BZ 1156192).
+Patch977: gdb-rhbz1156192-recursive-dlopen-test.patch
+
 # Fix jit-reader.h for multi-lib.
 Patch978: gdb-jit-reader-multilib.patch
+
+# Fix '`catch syscall' doesn't work for parent after `fork' is called'
+# (Philippe Waroquiers, RH BZ 1149205).
+Patch984: gdb-rhbz1149205-catch-syscall-after-fork-test.patch
+
+# Fix 'backport GDB 7.4 fix to RHEL 6.6 GDB' [Original Sourceware bug
+# description: 'C++ (and objc): Internal error on unqualified name
+# re-set', PR 11657] (RH BZ 1186476).
+Patch991: gdb-rhbz1186476-internal-error-unqualified-name-re-set-test.patch
 
 # Test 'info type-printers' Python error (RH BZ 1350436).
 Patch992: gdb-rhbz1350436-type-printers-error.patch
@@ -606,12 +636,18 @@ Patch1144: gdb-bison-old.patch
 Patch1145: gdb-testsuite-casts.patch
 Patch1146: gdb-testsuite-m-static.patch
 
-# [aarch64] Fix gdb.cp/nextoverthrow.exp regression (Yao Qi).
-Patch1148: gdb-aarch64-nextoverthrow.patch
-
 # Fix TLS (such as 'errno') regression.
 Patch1149: gdb-tls-1of2.patch
 Patch1150: gdb-tls-2of2.patch
+
+# [testsuite] Fix false FAIL for gdb.base/morestack.exp.
+Patch1151: gdb-testsuite-morestack-gold.patch
+
+# Fix gdb-headless /usr/bin/ executables (BZ 1390251).
+Patch1152: gdb-libexec-add-index.patch
+
+# Fix gdb-add-index for 444 *.debug files.
+Patch1153: gdb-add-index-chmod.patch
 
 %if 0%{!?rhel:1} || 0%{?rhel} > 6
 # RL_STATE_FEDORA_GDB would not be found for:
@@ -922,7 +958,10 @@ find -name "*.info*"|xargs rm -f
 %patch542 -p1
 %patch547 -p1
 %patch548 -p1
+%patch565 -p1
+%patch567 -p1
 %patch579 -p1
+%patch616 -p1
 %patch627 -p1
 %patch634 -p1
 %patch653 -p1
@@ -939,13 +978,17 @@ find -name "*.info*"|xargs rm -f
 %patch818 -p1
 %patch832 -p1
 %patch852 -p1
+%patch861 -p1
 %patch863 -p1
 %patch887 -p1
 %patch888 -p1
 %patch918 -p1
 %patch925 -p1
 %patch927 -p1
+%patch977 -p1
 %patch978 -p1
+%patch984 -p1
+%patch991 -p1
 %patch992 -p1
 %patch1026 -p1
 %patch1053 -p1
@@ -973,9 +1016,11 @@ done
 %patch1144 -p1
 %patch1145 -p1
 %patch1146 -p1
-%patch1148 -p1
 %patch1149 -p1
 %patch1150 -p1
+%patch1151 -p1
+%patch1152 -p1
+%patch1153 -p1
 
 %patch1075 -p1
 %if 0%{?rhel:1} && 0%{?rhel} <= 7
@@ -1306,7 +1351,16 @@ make %{?_smp_mflags} install DESTDIR=$RPM_BUILD_ROOT
 %if 0%{!?scl:1}
 mkdir -p $RPM_BUILD_ROOT%{_prefix}/libexec
 mv -f $RPM_BUILD_ROOT%{_bindir}/gdb $RPM_BUILD_ROOT%{_prefix}/libexec/gdb
-ln -s -r $RPM_BUILD_ROOT%{_prefix}/libexec/gdb $RPM_BUILD_ROOT%{_bindir}/gdb
+%if 0%{?rhel:1} && 0%{?rhel} <= 6
+# RHEL-6: ln: invalid option -- 'r': https://bugzilla.redhat.com/show_bug.cgi?id=1384947
+# RHEL-6 also does not have: /usr/bin/realpath
+ln -s $(
+  perl -le 'sub x{$_=$_[0];s{/+}{/}g;s{/$}{};return split "/";}@a=x shift;@b=x shift;while($a[0] eq $b[0]){shift @a;shift @b;}print join "/",map("..",@a),@b;' \
+    $RPM_BUILD_ROOT%{_bindir} $RPM_BUILD_ROOT%{_prefix}/libexec/gdb
+) $RPM_BUILD_ROOT%{_bindir}/gdb
+%else
+ln -s -r                                                 $RPM_BUILD_ROOT%{_prefix}/libexec/gdb  $RPM_BUILD_ROOT%{_bindir}/gdb
+%endif
 %endif
 
 # Provide gdbtui for RHEL-5 and RHEL-6 as it is removed upstream (BZ 797664).
@@ -1332,7 +1386,7 @@ mkdir -p $RPM_BUILD_ROOT/usr/lib/debug%{_bindir}
 cp -p $RPM_BUILD_DIR/%{gdb_src}/gdb/gdb-gdb.py $RPM_BUILD_ROOT/usr/lib/debug%{_bindir}/
 for pyo in "" "-O";do
   # RHEL-5: AttributeError: 'module' object has no attribute 'compile_file'
-  python $pyo -c 'import compileall, re, sys; sys.exit (not compileall.compile_dir("'"$RPM_BUILD_ROOT/usr/lib/debug%{_bindir}"'", 1, "'"/usr/lib/debug%{_bindir}"'"))'
+  %{__python} $pyo -c 'import compileall, re, sys; sys.exit (not compileall.compile_dir("'"$RPM_BUILD_ROOT/usr/lib/debug%{_bindir}"'", 1, "'"/usr/lib/debug%{_bindir}"'"))'
 done
 %endif # 0%{?_enable_debug_packages:1} && 0%{!?_without_python:1}
 
@@ -1440,40 +1494,37 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
+%doc COPYING3 COPYING COPYING.LIB README NEWS
 %{_bindir}/gdb
+%{_bindir}/gcore
+%{_mandir}/*/gcore.1*
+%{_bindir}/gstack
+%{_mandir}/*/gstack.1*
+%{_bindir}/pstack
+%{_mandir}/*/pstack.1*
+# Provide gdb/jit-reader.h so that users are able to write their own GDB JIT
+# plugins.
+%{_includedir}/gdb
 %if 0%{!?scl:1}
 %files headless
 %defattr(-,root,root)
 %{_prefix}/libexec/gdb
 %endif
-%doc COPYING3 COPYING COPYING.LIB README NEWS
-%{_bindir}/gcore
 %config(noreplace) %{_sysconfdir}/gdbinit
+%{_mandir}/*/gdb.1*
 %{_sysconfdir}/gdbinit.d
 %{_mandir}/*/gdbinit.5*
-%{_mandir}/*/gdb.1*
-%{_mandir}/*/gcore.1*
 # gdb-add-index cannot be run even for SCL package on RHEL<=6.
 %if 0%{!?rhel:1} || 0%{?rhel} > 6
+%{_bindir}/gdb-add-index
 %{_mandir}/*/gdb-add-index.1*
 %endif
-%{_bindir}/gstack
-%{_mandir}/*/gstack.1*
 # Provide gdbtui for RHEL-5 and RHEL-6 as it is removed upstream (BZ 797664).
 %if 0%{?rhel:1} && 0%{?rhel} <= 6
 %{_bindir}/gdbtui
 %{_mandir}/*/gdbtui.1*
 %endif # 0%{?rhel:1} && 0%{?rhel} <= 6
-# gdb-add-index cannot be run even for SCL package on RHEL<=6.
-%if 0%{!?rhel:1} || 0%{?rhel} > 6
-%{_bindir}/gdb-add-index
-%endif
-%{_bindir}/pstack
-%{_mandir}/*/pstack.1*
 %{_datadir}/gdb
-# Provide gdb/jit-reader.h so that users are able to write their own GDB JIT
-# plugins.
-%{_includedir}/gdb
 
 # don't include the files in include, they are part of binutils
 
@@ -1533,6 +1584,60 @@ then
 fi
 
 %changelog
+* Wed Feb 15 2017 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12.1-46.fc25
+- Fix <tab>-completion crash (Gary Benson, RH BZ 1398387).
+
+* Tue Feb 14 2017 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12.1-45.fc25
+- Release bump.
+
+* Sun Feb 12 2017 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12.1-44.fc25
+- [dts] Upgrade libstdc++-v3-python to 6.3.1-20170212.
+
+* Sat Jan 21 2017 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12.1-41.fc25
+- Rebase to released FSF GDB 7.12.1.
+
+* Tue Jan 17 2017 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-40.fc25
+- Enable libinproctrace.so on all archs except arm32.
+
+* Thu Jan 12 2017 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-37.fc25
+- [rhel6] Fix missing /usr/bin/realpath.
+
+* Wed Jan 11 2017 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-36.fc25
+- Update from FSF GDB 7.12 stable branch to snapshot: gdb-7.12.0.20170111
+
+* Sun Jan  8 2017 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-35.fc25
+- Fix Python backtraces for 32-bit inferiors (Tom Tromey, RH BZ 1411094).
+
+* Fri Jan  6 2017 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-34.fc25
+- Fix gdb-add-index for 444 *.debug files.
+
+* Mon Jan 02 2017 Rex Dieter <rdieter@fedoraproject.org> - 7.12-33.fc25
+- fix logic of prior Conflicts
+
+* Mon Jan 02 2017 Rex Dieter <rdieter@fedoraproject.org> - 7.12-32.fc25
+- Conflicts: gdb-headless < 7.12-29 (#1402554)
+
+* Fri Dec 09 2016 Charalampos Stratakis <cstratak@redhat.com> - 7.12-31.fc25
+- Python 3.6 rebuild: Rebuild with python3 support.
+
+* Fri Dec 09 2016 Charalampos Stratakis <cstratak@redhat.com> - 7.12-30.fc25
+- Python 3.6 rebuild: Rebuild without python3 support.
+
+* Mon Oct 31 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-29.fc25
+- Fix gdb-headless /usr/bin/ executables (BZ 1390251).
+
+* Mon Oct 24 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-28.fc25
+- Fix testcase: gdb.base/gdb-rhbz1156192-recursive-dlopen.exp
+
+* Sun Oct 23 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-27.fc25
+- More work on missing testcases present in rhel6 GDB; some still FAIL.
+
+* Thu Oct 20 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-26.fc25
+- Add missing testcases present in rhel6 GDB; some still FAIL.
+
+* Fri Oct 14 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-25.fc25
+- [rhel6] Fix .spec without devtoolset-6-build installed (RH BZ 1384947).
+
 * Wed Oct 12 2016 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.12-24.fc25
 - Fix TLS (such as 'errno') regression.
 
