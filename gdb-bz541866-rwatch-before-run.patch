@@ -10,7 +10,7 @@ Subject: gdb-bz541866-rwatch-before-run.patch
 diff --git a/gdb/breakpoint.c b/gdb/breakpoint.c
 --- a/gdb/breakpoint.c
 +++ b/gdb/breakpoint.c
-@@ -8799,7 +8799,7 @@ init_breakpoint_sal (struct breakpoint *b, struct gdbarch *gdbarch,
+@@ -8864,7 +8864,7 @@ init_breakpoint_sal (struct breakpoint *b, struct gdbarch *gdbarch,
  		     int enabled, int internal, unsigned flags,
  		     int display_canonical)
  {
@@ -19,7 +19,7 @@ diff --git a/gdb/breakpoint.c b/gdb/breakpoint.c
  
    if (type == bp_hardware_breakpoint)
      {
-@@ -14349,7 +14349,7 @@ enable_breakpoint_disp (struct breakpoint *bpt, enum bpdisp disposition,
+@@ -14425,7 +14425,7 @@ enable_breakpoint_disp (struct breakpoint *bpt, enum bpdisp disposition,
  
    if (bpt->type == bp_hardware_breakpoint)
      {
@@ -97,7 +97,7 @@ new file mode 100644
 diff --git a/gdb/configure.nat b/gdb/configure.nat
 --- a/gdb/configure.nat
 +++ b/gdb/configure.nat
-@@ -238,6 +238,7 @@ case ${gdb_host} in
+@@ -237,6 +237,7 @@ case ${gdb_host} in
  		;;
  	    i386)
  		# Host: Intel 386 running GNU/Linux.
@@ -105,7 +105,7 @@ diff --git a/gdb/configure.nat b/gdb/configure.nat
  		NATDEPFILES="${NATDEPFILES} x86-nat.o x86-dregs.o \
  		i386-linux-nat.o x86-linux-nat.o linux-btrace.o \
  		x86-linux.o x86-linux-dregs.o"
-@@ -290,6 +291,7 @@ case ${gdb_host} in
+@@ -289,6 +290,7 @@ case ${gdb_host} in
  	case ${gdb_host_cpu} in
  	    i386)
  		# Host: GNU/Linux x86-64
@@ -116,13 +116,13 @@ diff --git a/gdb/configure.nat b/gdb/configure.nat
 diff --git a/gdb/target.h b/gdb/target.h
 --- a/gdb/target.h
 +++ b/gdb/target.h
-@@ -1953,9 +1953,11 @@ extern struct thread_info *target_thread_handle_to_thread_info
+@@ -1915,9 +1915,11 @@ extern struct thread_info *target_thread_handle_to_thread_info
     one.  OTHERTYPE is the number of watchpoints of other types than
     this one used so far.  */
  
 +#ifndef target_can_use_hardware_watchpoint
  #define target_can_use_hardware_watchpoint(TYPE,CNT,OTHERTYPE) \
-  (current_top_target ()->can_use_hw_breakpoint) ( \
+  (*current_target.to_can_use_hw_breakpoint) (&current_target,  \
  					     TYPE, CNT, OTHERTYPE)
 +#endif
  

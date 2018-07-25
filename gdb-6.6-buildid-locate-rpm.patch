@@ -242,7 +242,7 @@ diff --git a/gdb/build-id.c b/gdb/build-id.c
  
  #define BUILD_ID_VERBOSE_NONE 0
  #define BUILD_ID_VERBOSE_FILENAMES 1
-@@ -640,8 +642,366 @@ build_id_to_filename (const struct bfd_build_id *build_id, char **link_return)
+@@ -666,8 +668,366 @@ build_id_to_filename (const struct bfd_build_id *build_id, char **link_return)
    return result;
  }
  
@@ -610,7 +610,7 @@ diff --git a/gdb/build-id.c b/gdb/build-id.c
     avoidance.  */
  
  struct missing_filepair
-@@ -695,11 +1055,17 @@ missing_filepair_change (void)
+@@ -721,11 +1081,17 @@ missing_filepair_change (void)
        /* All their memory came just from missing_filepair_OBSTACK.  */
        missing_filepair_hash = NULL;
      }
@@ -628,7 +628,7 @@ diff --git a/gdb/build-id.c b/gdb/build-id.c
    missing_filepair_change ();
  }
  
-@@ -766,14 +1132,39 @@ debug_print_missing (const char *binary, const char *debug)
+@@ -792,14 +1158,39 @@ debug_print_missing (const char *binary, const char *debug)
  
    *slot = missing_filepair;
  
@@ -688,7 +688,7 @@ diff --git a/gdb/config.in b/gdb/config.in
  /* Define to 1 if translation of program messages to the user's native
     language is requested. */
  #undef ENABLE_NLS
-@@ -270,6 +273,9 @@
+@@ -264,6 +267,9 @@
  /* Define if Python 2.7 is being used. */
  #undef HAVE_LIBPYTHON2_7
  
@@ -756,7 +756,7 @@ diff --git a/gdb/configure b/gdb/configure
    YACC        The `Yet Another C Compiler' implementation to use. Defaults to
                the first program found out of: `bison -y', `byacc', `yacc'.
    YFLAGS      The list of arguments that will be passed by default to $YACC.
-@@ -6492,6 +6512,494 @@ _ACEOF
+@@ -6486,6 +6506,494 @@ _ACEOF
  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $with_auto_load_safe_path" >&5
  $as_echo "$with_auto_load_safe_path" >&6; }
  
@@ -1457,7 +1457,7 @@ diff --git a/gdb/configure.ac b/gdb/configure.ac
 diff --git a/gdb/corelow.c b/gdb/corelow.c
 --- a/gdb/corelow.c
 +++ b/gdb/corelow.c
-@@ -368,7 +368,7 @@ build_id_locate_exec (int from_tty)
+@@ -309,7 +309,7 @@ build_id_locate_exec (int from_tty)
          symfile_objfile->flags |= OBJF_BUILD_ID_CORE_LOADED;
      }
    else
@@ -1501,7 +1501,7 @@ diff --git a/gdb/event-top.c b/gdb/event-top.c
 diff --git a/gdb/symfile.h b/gdb/symfile.h
 --- a/gdb/symfile.h
 +++ b/gdb/symfile.h
-@@ -538,6 +538,8 @@ void map_symbol_filenames (symbol_filename_ftype *fun, void *data,
+@@ -546,6 +546,8 @@ void map_symbol_filenames (symbol_filename_ftype *fun, void *data,
  /* build-id support.  */
  extern struct bfd_build_id *build_id_addr_get (CORE_ADDR addr);
  extern void debug_print_missing (const char *binary, const char *debug);

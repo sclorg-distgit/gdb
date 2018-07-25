@@ -18,22 +18,22 @@
 Name: %{?scl_prefix}gdb
 
 # Freeze it when GDB gets branched
-%global snapsrc    20180618
+%global snapsrc    20180109
 # See timestamp of source gnulib installed into gdb/gnulib/ .
 %global snapgnulib 20161115
 %global tarname gdb-%{version}
-Version: 8.1.50.%{snapsrc}
+Version: 8.1
 
 # The release always contains a leading reserved number, start it at 1.
 # `upstream' is not a part of `name' to stay fully rpm dependencies compatible for the testing.
-Release: 24%{?dist}
+Release: 21%{?dist}
 
 License: GPLv3+ and GPLv3+ with exceptions and GPLv2+ and GPLv2+ with exceptions and GPL+ and LGPLv2+ and LGPLv3+ and BSD and Public Domain and GFDL
 Group: Development/Debuggers
 # Do not provide URL for snapshots as the file lasts there only for 2 days.
 # ftp://sourceware.org/pub/gdb/releases/FIXME{tarname}.tar.xz
-Source: %{tarname}.tar.xz
-#Source: ftp://sourceware.org/pub/gdb/releases/%{tarname}.tar.xz
+#Source: % {tarname}.tar.xz
+Source: ftp://sourceware.org/pub/gdb/releases/%{tarname}.tar.xz
 Buildroot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 URL: http://gnu.org/software/gdb/
 
@@ -161,7 +161,7 @@ Source3: gdb-gstack.man
 Source4: gdbinit
 
 # libstdc++ pretty printers from GCC SVN.
-%global libstdcxxpython gdb-libstdc++-v3-python-7.1.1-20170526
+%global libstdcxxpython gdb-libstdc++-v3-python-8.1.1-20180626
 #=fedora
 Source5: %{libstdcxxpython}.tar.xz
 
@@ -1040,36 +1040,29 @@ fi
 %endif
 
 %changelog
-* Wed Jun 20 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180618-24.fc29
+* Thu Jul 12 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1-21.fc28
+- [dts] Upgrade libstdc++-v3-python to 8.1.1-20180626.
+
+* Thu Jul 12 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1-20.fc28
+- Implement IPv6 support for GDB/gdbserver (RH BZ 881849, Sergio Durigan Junior).
+
+* Sun Jul  1 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1-19.fc28
+- Show inlined function according to breakpoint (RH BZ 1228549).
+
+* Wed Jun 20 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1-18.fc28
 - Add BuildRequires: mpfr-devel (RH BZ 1593280).
 
-* Mon Jun 18 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180618-23.fc29
-- Rebase to FSF GDB 8.1.50.20180618 (8.2pre).
+* Tue Jun 19 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1-17.fc28
+- Rework "[aarch64] Fix missed unaligned hardware watchpoints (RH BZ 1347993)."
+- Improve scripts used for patch management.
+- Remove unnecessary cruft from patches.
 
-* Mon Jun 18 2018 Sergio Durigan Junior <sergiodj@fedoraproject.org> - 8.1.50.20180613-22.fc29
+* Mon Jun 18 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1-16.fc28
 - Do not run /sbin/install-info when installing the documentation
   (except for DTS).
 
-* Wed Jun 13 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180613-21.fc29
-- Rebase to FSF GDB 8.1.50.20180613 (8.2pre).
-
-* Wed Jun 13 2018 Miro Hrončok <mhroncok@redhat.com>
-- Rebuilt for Python 3.7
-
-* Wed Jun 13 2018 Miro Hrončok <mhroncok@redhat.com>
-- Bootstrap for Python 3.7
-
-* Fri Jun  8 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180605-18.fc29
-- Fix Python 3.7 breakage (RH BZ 1577396).
-
-* Tue Jun  5 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180605-17.fc29
-- Rebase to FSF GDB 8.1.50.20180605 (8.2pre).
-
-* Sat Jun  2 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180522-16.fc29
-- Rebase to FSF GDB 8.1.50.20180529 (8.2pre).
-
-* Wed May 30 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180522-15.fc28
-- Rebase to FSF GDB 8.1.50.20180522 (8.2pre).
+* Sat May  5 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1-15.fc28
+- [aarch64] Fix missed unaligned hardware watchpoints (RH BZ 1347993).
 
 * Mon Apr  2 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1-14.fc28
 - Revert 'Fix PDF build on Rawhide/F-29', rm -rf texinfo/ (from RH BZ 1562580).

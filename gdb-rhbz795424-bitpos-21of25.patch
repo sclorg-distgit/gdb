@@ -62,7 +62,7 @@ Content-Disposition: attachment; filename=bitpos-ensure-size_t.patch
 diff --git a/gdb/alpha-tdep.c b/gdb/alpha-tdep.c
 --- a/gdb/alpha-tdep.c
 +++ b/gdb/alpha-tdep.c
-@@ -413,6 +413,13 @@ alpha_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -415,6 +415,13 @@ alpha_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
      accumulate_size = 0;
    else
      accumulate_size -= sizeof(arg_reg_buffer);
@@ -90,7 +90,7 @@ diff --git a/gdb/cp-valprint.c b/gdb/cp-valprint.c
 diff --git a/gdb/defs.h b/gdb/defs.h
 --- a/gdb/defs.h
 +++ b/gdb/defs.h
-@@ -665,4 +665,6 @@ DEF_ENUM_FLAGS_TYPE (enum user_selected_what_flag, user_selected_what);
+@@ -705,4 +705,6 @@ DEF_ENUM_FLAGS_TYPE (enum user_selected_what_flag, user_selected_what);
  
  #include "utils.h"
  
@@ -111,7 +111,7 @@ diff --git a/gdb/p-valprint.c b/gdb/p-valprint.c
 diff --git a/gdb/utils.c b/gdb/utils.c
 --- a/gdb/utils.c
 +++ b/gdb/utils.c
-@@ -2834,6 +2834,17 @@ string_to_core_addr (const char *my_string)
+@@ -2836,6 +2836,18 @@ string_to_core_addr (const char *my_string)
    return addr;
  }
  
@@ -126,13 +126,14 @@ diff --git a/gdb/utils.c b/gdb/utils.c
 +	     "maximum allowed %s bytes."), pulongest (num),
 +	   pulongest (SIZE_MAX / 8));
 +}
- #if GDB_SELF_TEST
- 
- static void
++
+ gdb::unique_xmalloc_ptr<char>
+ gdb_realpath (const char *filename)
+ {
 diff --git a/gdb/valops.c b/gdb/valops.c
 --- a/gdb/valops.c
 +++ b/gdb/valops.c
-@@ -2088,6 +2088,7 @@ search_struct_method (const char *name, struct value **arg1p,
+@@ -2087,6 +2087,7 @@ search_struct_method (const char *name, struct value **arg1p,
  	    {
  	      CORE_ADDR address;
  
@@ -143,15 +144,15 @@ diff --git a/gdb/valops.c b/gdb/valops.c
 diff --git a/gdb/value.c b/gdb/value.c
 --- a/gdb/value.c
 +++ b/gdb/value.c
-@@ -933,6 +933,7 @@ allocate_value_lazy (struct type *type)
+@@ -926,6 +926,7 @@ allocate_value_lazy (struct type *type)
       description correctly.  */
    check_typedef (type);
  
 +  ulongest_fits_host_or_error (TYPE_LENGTH (type));
-   val = new struct value (type);
- 
-   /* Values start out on the all_values chain.  */
-@@ -1015,6 +1016,8 @@ check_type_length_before_alloc (const struct type *type)
+   val = XCNEW (struct value);
+   val->contents = NULL;
+   val->next = all_values;
+@@ -1023,6 +1024,8 @@ check_type_length_before_alloc (const struct type *type)
  static void
  allocate_value_contents (struct value *val)
  {
@@ -160,14 +161,14 @@ diff --git a/gdb/value.c b/gdb/value.c
    if (!val->contents)
      {
        check_type_length_before_alloc (val->enclosing_type);
-@@ -2876,6 +2879,7 @@ set_value_enclosing_type (struct value *val, struct type *new_encl_type)
+@@ -3015,6 +3018,7 @@ set_value_enclosing_type (struct value *val, struct type *new_encl_type)
    if (TYPE_LENGTH (new_encl_type) > TYPE_LENGTH (value_enclosing_type (val)))
      {
        check_type_length_before_alloc (new_encl_type);
 +      ulongest_fits_host_or_error (TYPE_LENGTH (new_encl_type));
        val->contents
- 	.reset ((gdb_byte *) xrealloc (val->contents.release (),
- 				       TYPE_LENGTH (new_encl_type)));
+ 	= (gdb_byte *) xrealloc (val->contents, TYPE_LENGTH (new_encl_type));
+     }
 diff --git a/gdb/vax-tdep.c b/gdb/vax-tdep.c
 --- a/gdb/vax-tdep.c
 +++ b/gdb/vax-tdep.c

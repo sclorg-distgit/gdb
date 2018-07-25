@@ -45,7 +45,7 @@ gdb/gdbserver/
 diff --git a/gdb/config.in b/gdb/config.in
 --- a/gdb/config.in
 +++ b/gdb/config.in
-@@ -276,6 +276,9 @@
+@@ -270,6 +270,9 @@
  /* Define if librpm library is being used. */
  #undef HAVE_LIBRPM
  
@@ -55,7 +55,7 @@ diff --git a/gdb/config.in b/gdb/config.in
  /* Define to 1 if you have the <libunwind-ia64.h> header file. */
  #undef HAVE_LIBUNWIND_IA64_H
  
-@@ -399,6 +402,9 @@
+@@ -393,6 +396,9 @@
  /* Define to 1 if you have the `scm_new_smob' function. */
  #undef HAVE_SCM_NEW_SMOB
  
@@ -68,7 +68,7 @@ diff --git a/gdb/config.in b/gdb/config.in
 diff --git a/gdb/configure b/gdb/configure
 --- a/gdb/configure
 +++ b/gdb/configure
-@@ -15747,6 +15747,64 @@ cat >>confdefs.h <<_ACEOF
+@@ -15681,6 +15681,64 @@ cat >>confdefs.h <<_ACEOF
  _ACEOF
  
  
@@ -136,7 +136,7 @@ diff --git a/gdb/configure b/gdb/configure
 diff --git a/gdb/configure.ac b/gdb/configure.ac
 --- a/gdb/configure.ac
 +++ b/gdb/configure.ac
-@@ -2048,6 +2048,10 @@ case $host_os in
+@@ -2043,6 +2043,10 @@ case $host_os in
  esac
  AC_DEFINE_UNQUOTED(GDBINIT,"$gdbinit",[The .gdbinit filename.])
  
@@ -173,7 +173,7 @@ diff --git a/gdb/gdbserver/config.in b/gdb/gdbserver/config.in
 diff --git a/gdb/gdbserver/configure b/gdb/gdbserver/configure
 --- a/gdb/gdbserver/configure
 +++ b/gdb/gdbserver/configure
-@@ -8465,6 +8465,64 @@ if $want_ipa ; then
+@@ -8455,6 +8455,64 @@ if $want_ipa ; then
     fi
  fi
  
@@ -255,17 +255,22 @@ diff --git a/gdb/gdbserver/configure.ac b/gdb/gdbserver/configure.ac
 diff --git a/gdb/gdbserver/linux-low.c b/gdb/gdbserver/linux-low.c
 --- a/gdb/gdbserver/linux-low.c
 +++ b/gdb/gdbserver/linux-low.c
-@@ -967,7 +967,16 @@ linux_ptrace_fun ()
+@@ -963,7 +963,21 @@ linux_ptrace_fun ()
  {
    if (ptrace (PTRACE_TRACEME, 0, (PTRACE_TYPE_ARG3) 0,
  	      (PTRACE_TYPE_ARG4) 0) < 0)
 -    trace_start_error_with_name ("ptrace");
 +    {
 +      int save_errno = errno;
++      struct buffer buffer;
 +
-+      std::string msg (linux_ptrace_create_warnings ());
++      buffer_init (&buffer);
++      linux_ptrace_create_warnings (&buffer);
++      buffer_grow_str0 (&buffer, "");
 +
-+      msg += _("Cannot trace created process");
++      std::string msg
++	= string_printf (_("%sCannot trace created process"),
++			 buffer_finish (&buffer));
 +
 +      errno = save_errno;
 +      trace_start_error_with_name (msg.c_str ());
@@ -276,20 +281,32 @@ diff --git a/gdb/gdbserver/linux-low.c b/gdb/gdbserver/linux-low.c
 diff --git a/gdb/linux-nat.c b/gdb/linux-nat.c
 --- a/gdb/linux-nat.c
 +++ b/gdb/linux-nat.c
-@@ -1088,7 +1088,17 @@ linux_nat_target::create_inferior (const char *exec_file,
+@@ -1127,7 +1127,29 @@ linux_nat_create_inferior (struct target_ops *ops,
    /* Make sure we report all signals during startup.  */
-   pass_signals (0, NULL);
+   linux_nat_pass_signals (ops, 0, NULL);
  
--  inf_ptrace_target::create_inferior (exec_file, allargs, env, from_tty);
+-  linux_ops->to_create_inferior (ops, exec_file, allargs, env, from_tty);
++  volatile struct gdb_exception ex;
 +  TRY
 +    {
-+      inf_ptrace_target::create_inferior (exec_file, allargs, env, from_tty);
++      linux_ops->to_create_inferior (ops, exec_file, allargs, env, from_tty);
 +    }
 +  CATCH (ex, RETURN_MASK_ERROR)
 +    {
-+      std::string result =  linux_ptrace_create_warnings ();
++      struct buffer buffer;
++      char *message, *buffer_s;
 +
-+      throw_error (ex.error, "%s%s", result.c_str (), ex.message);
++      message = xstrdup (ex.message);
++      make_cleanup (xfree, message);
++
++      buffer_init (&buffer);
++      linux_ptrace_create_warnings (&buffer);
++
++      buffer_grow_str0 (&buffer, "");
++      buffer_s = buffer_finish (&buffer);
++      make_cleanup (xfree, buffer_s);
++
++      throw_error (ex.error, "%s%s", buffer_s, message);
 +    }
 +  END_CATCH
  }
@@ -298,7 +315,7 @@ diff --git a/gdb/linux-nat.c b/gdb/linux-nat.c
 diff --git a/gdb/nat/linux-ptrace.c b/gdb/nat/linux-ptrace.c
 --- a/gdb/nat/linux-ptrace.c
 +++ b/gdb/nat/linux-ptrace.c
-@@ -25,6 +25,10 @@
+@@ -27,6 +27,10 @@
  #include <sys/procfs.h>
  #endif
  
@@ -309,36 +326,33 @@ diff --git a/gdb/nat/linux-ptrace.c b/gdb/nat/linux-ptrace.c
  /* Stores the ptrace options supported by the running kernel.
     A value of -1 means we did not check for features yet.  A value
     of 0 means there are no supported features.  */
-@@ -50,6 +54,8 @@ linux_ptrace_attach_fail_reason (pid_t pid)
- 		      "terminated"),
- 		    (int) pid);
- 
-+  result += linux_ptrace_create_warnings ();
+@@ -51,6 +55,8 @@ linux_ptrace_attach_fail_reason (pid_t pid, struct buffer *buffer)
+     buffer_xml_printf (buffer, _("process %d is a zombie "
+ 				 "- the process has already terminated"),
+ 		       (int) pid);
 +
-   return result;
++  linux_ptrace_create_warnings (buffer);
  }
  
-@@ -583,6 +589,25 @@ linux_ptrace_init_warnings (void)
+ /* See linux-ptrace.h.  */
+@@ -594,6 +600,22 @@ linux_ptrace_init_warnings (void)
    linux_ptrace_test_ret_to_nx ();
  }
  
 +/* Print all possible reasons we could fail to create a traced process.  */
 +
-+std::string
-+linux_ptrace_create_warnings ()
++void
++linux_ptrace_create_warnings (struct buffer *buffer)
 +{
-+  std::string result;
-+
 +#ifdef HAVE_LIBSELINUX
 +  /* -1 is returned for errors, 0 if it has no effect, 1 if PTRACE_ATTACH is
 +     forbidden.  */
 +  if (security_get_boolean_active ("deny_ptrace") == 1)
-+    string_appendf (result,
-+		    _("the SELinux boolean 'deny_ptrace' is enabled, "
-+		      "you can disable this process attach protection by: "
-+		      "(gdb) shell sudo setsebool deny_ptrace=0\n"));
++    buffer_xml_printf (buffer,
++		       _("the SELinux boolean 'deny_ptrace' is enabled, "
++			 "you can disable this process attach protection by: "
++			 "(gdb) shell sudo setsebool deny_ptrace=0"));
 +#endif /* HAVE_LIBSELINUX */
-+  return result;
 +}
 +
  /* Extract extended ptrace event from wait status.  */
@@ -347,11 +361,11 @@ diff --git a/gdb/nat/linux-ptrace.c b/gdb/nat/linux-ptrace.c
 diff --git a/gdb/nat/linux-ptrace.h b/gdb/nat/linux-ptrace.h
 --- a/gdb/nat/linux-ptrace.h
 +++ b/gdb/nat/linux-ptrace.h
-@@ -184,6 +184,7 @@ extern std::string linux_ptrace_attach_fail_reason (pid_t pid);
- extern std::string linux_ptrace_attach_fail_reason_string (ptid_t ptid, int err);
+@@ -190,6 +190,7 @@ extern void linux_ptrace_attach_fail_reason (pid_t pid, struct buffer *buffer);
+ extern char *linux_ptrace_attach_fail_reason_string (ptid_t ptid, int err);
  
  extern void linux_ptrace_init_warnings (void);
-+extern std::string linux_ptrace_create_warnings ();
++extern void linux_ptrace_create_warnings (struct buffer *buffer);
  extern void linux_check_ptrace_features (void);
  extern void linux_enable_event_reporting (pid_t pid, int attached);
  extern void linux_disable_event_reporting (pid_t pid);
