@@ -1,0 +1,59 @@
+From FEDORA_PATCHES Mon Sep 17 00:00:00 2001
+From: Fedora GDB patches <invalid@email.com>
+Date: Fri, 27 Oct 2017 21:07:50 +0200
+Subject: gdb-gnat-dwarf-crash-3of3.patch
+
+;; Fix crash of -readnow /usr/lib/debug/usr/bin/gnatbind.debug (BZ 1069211).
+;;=push+jan
+
+http://sourceware.org/ml/gdb-patches/2014-02/msg00731.html
+
+--6TrnltStXW4iwmi0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi,
+
+PR 16581:
+	GDB crash on inherit_abstract_dies infinite recursion
+	https://sourceware.org/bugzilla/show_bug.cgi?id=16581
+
+fixed crash from an infinite recursion.  But in rare cases the new code can
+now gdb_assert() due to weird DWARF file.
+
+I do not yet fully understand why the DWARF is as it is but just GDB should
+never crash due to invalid DWARF anyway.  The "invalid" DWARF I see only in
+Fedora GCC build, not in FSF GCC build, more info at:
+	https://bugzilla.redhat.com/show_bug.cgi?id=1069382
+	http://people.redhat.com/jkratoch/gcc-debuginfo-4.8.2-7.fc20.x86_64-gnatbind.debug
+
+Thanks,
+Jan
+
+--6TrnltStXW4iwmi0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline; filename="complaint.patch"
+
+gdb/
+2014-02-24  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	* dwarf2read.c (process_die): Change gdb_assert to complaint.
+
+diff --git a/gdb/dwarf2read.c b/gdb/dwarf2read.c
+--- a/gdb/dwarf2read.c
++++ b/gdb/dwarf2read.c
+@@ -10612,6 +10612,14 @@ private:
+ static void
+ process_die (struct die_info *die, struct dwarf2_cu *cu)
+ {
++  if (die->in_process)
++    {
++      complaint (&symfile_complaints,
++		 _("DIE at 0x%x attempted to be processed twice"),
++		 to_underlying (die->sect_off));
++      return;
++    }
++
+   process_die_scope scope (die, cu);
+ 
+   switch (die->tag)
