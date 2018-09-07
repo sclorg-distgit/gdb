@@ -147,7 +147,7 @@ Content-Disposition: attachment; filename=bitpos-tdep.patch
 diff --git a/gdb/alpha-tdep.c b/gdb/alpha-tdep.c
 --- a/gdb/alpha-tdep.c
 +++ b/gdb/alpha-tdep.c
-@@ -301,17 +301,17 @@ alpha_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -299,17 +299,17 @@ alpha_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
  {
    enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
    int i;
@@ -169,7 +169,7 @@ diff --git a/gdb/alpha-tdep.c b/gdb/alpha-tdep.c
    CORE_ADDR func_addr = find_function_addr (function, NULL);
  
    /* The ABI places the address of the called function in T12.  */
-@@ -431,8 +431,8 @@ alpha_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -429,8 +429,8 @@ alpha_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
    for (i = nargs; m_arg--, --i >= 0;)
      {
        const gdb_byte *contents = m_arg->contents;
@@ -180,7 +180,7 @@ diff --git a/gdb/alpha-tdep.c b/gdb/alpha-tdep.c
  
        /* Copy the bytes destined for registers into arg_reg_buffer.  */
        if (offset < sizeof(arg_reg_buffer))
-@@ -444,7 +444,7 @@ alpha_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -442,7 +442,7 @@ alpha_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
  	    }
  	  else
  	    {
@@ -192,7 +192,7 @@ diff --git a/gdb/alpha-tdep.c b/gdb/alpha-tdep.c
 diff --git a/gdb/amd64-tdep.c b/gdb/amd64-tdep.c
 --- a/gdb/amd64-tdep.c
 +++ b/gdb/amd64-tdep.c
-@@ -880,8 +880,8 @@ amd64_push_arguments (struct regcache *regcache, int nargs,
+@@ -878,8 +878,8 @@ amd64_push_arguments (struct regcache *regcache, int nargs,
    };
    struct value **stack_args = XALLOCAVEC (struct value *, nargs);
    int num_stack_args = 0;
@@ -203,7 +203,7 @@ diff --git a/gdb/amd64-tdep.c b/gdb/amd64-tdep.c
    int integer_reg = 0;
    int sse_reg = 0;
    int i;
-@@ -893,7 +893,7 @@ amd64_push_arguments (struct regcache *regcache, int nargs,
+@@ -891,7 +891,7 @@ amd64_push_arguments (struct regcache *regcache, int nargs,
    for (i = 0; i < nargs; i++)
      {
        struct type *type = value_type (args[i]);
@@ -212,13 +212,13 @@ diff --git a/gdb/amd64-tdep.c b/gdb/amd64-tdep.c
        enum amd64_reg_class theclass[2];
        int needed_integer_regs = 0;
        int needed_sse_regs = 0;
-@@ -957,7 +957,7 @@ amd64_push_arguments (struct regcache *regcache, int nargs,
+@@ -955,7 +955,7 @@ amd64_push_arguments (struct regcache *regcache, int nargs,
  
  	      gdb_assert (regnum != -1);
  	      memset (buf, 0, sizeof buf);
 -	      memcpy (buf, valbuf + j * 8, std::min (len, 8));
 +	      memcpy (buf, valbuf + j * 8, std::min (len, (LONGEST) 8));
- 	      regcache_raw_write_part (regcache, regnum, offset, 8, buf);
+ 	      regcache->raw_write_part (regnum, offset, 8, buf);
  	    }
  	}
 diff --git a/gdb/amd64-windows-tdep.c b/gdb/amd64-windows-tdep.c
@@ -236,7 +236,7 @@ diff --git a/gdb/amd64-windows-tdep.c b/gdb/amd64-windows-tdep.c
 diff --git a/gdb/arm-tdep.c b/gdb/arm-tdep.c
 --- a/gdb/arm-tdep.c
 +++ b/gdb/arm-tdep.c
-@@ -3477,7 +3477,7 @@ arm_vfp_cprc_reg_char (enum arm_vfp_cprc_base_type b)
+@@ -3468,7 +3468,7 @@ arm_vfp_cprc_reg_char (enum arm_vfp_cprc_base_type b)
     array).  Vector types are not currently supported, matching the
     generic AAPCS support.  */
  
@@ -245,7 +245,7 @@ diff --git a/gdb/arm-tdep.c b/gdb/arm-tdep.c
  arm_vfp_cprc_sub_candidate (struct type *t,
  			    enum arm_vfp_cprc_base_type *base_type)
  {
-@@ -3560,7 +3560,7 @@ arm_vfp_cprc_sub_candidate (struct type *t,
+@@ -3551,7 +3551,7 @@ arm_vfp_cprc_sub_candidate (struct type *t,
  	  }
  	else
  	  {
@@ -254,7 +254,7 @@ diff --git a/gdb/arm-tdep.c b/gdb/arm-tdep.c
  	    unsigned unitlen;
  
  	    count = arm_vfp_cprc_sub_candidate (TYPE_TARGET_TYPE (t),
-@@ -3583,12 +3583,12 @@ arm_vfp_cprc_sub_candidate (struct type *t,
+@@ -3574,12 +3574,12 @@ arm_vfp_cprc_sub_candidate (struct type *t,
  
      case TYPE_CODE_STRUCT:
        {
@@ -269,7 +269,7 @@ diff --git a/gdb/arm-tdep.c b/gdb/arm-tdep.c
  
  	    if (!field_is_static (&TYPE_FIELD (t, i)))
  	      sub_count = arm_vfp_cprc_sub_candidate (TYPE_FIELD_TYPE (t, i),
-@@ -3612,13 +3612,15 @@ arm_vfp_cprc_sub_candidate (struct type *t,
+@@ -3603,13 +3603,15 @@ arm_vfp_cprc_sub_candidate (struct type *t,
  
      case TYPE_CODE_UNION:
        {
@@ -288,7 +288,7 @@ diff --git a/gdb/arm-tdep.c b/gdb/arm-tdep.c
  	    if (sub_count == -1)
  	      return -1;
  	    count = (count > sub_count ? count : sub_count);
-@@ -3654,7 +3656,7 @@ arm_vfp_call_candidate (struct type *t, enum arm_vfp_cprc_base_type *base_type,
+@@ -3645,7 +3647,7 @@ arm_vfp_call_candidate (struct type *t, enum arm_vfp_cprc_base_type *base_type,
  			int *count)
  {
    enum arm_vfp_cprc_base_type b = VFP_CPRC_UNKNOWN;
@@ -297,7 +297,7 @@ diff --git a/gdb/arm-tdep.c b/gdb/arm-tdep.c
    if (c <= 0 || c > 4)
      return 0;
    *base_type = b;
-@@ -3735,7 +3737,7 @@ arm_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -3726,7 +3728,7 @@ arm_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
  
    for (argnum = 0; argnum < nargs; argnum++)
      {
@@ -309,7 +309,7 @@ diff --git a/gdb/arm-tdep.c b/gdb/arm-tdep.c
 diff --git a/gdb/avr-tdep.c b/gdb/avr-tdep.c
 --- a/gdb/avr-tdep.c
 +++ b/gdb/avr-tdep.c
-@@ -1191,13 +1191,13 @@ avr_dummy_id (struct gdbarch *gdbarch, struct frame_info *this_frame)
+@@ -1192,13 +1192,13 @@ avr_dummy_id (struct gdbarch *gdbarch, struct frame_info *this_frame)
  
  struct stack_item
  {
@@ -325,7 +325,7 @@ diff --git a/gdb/avr-tdep.c b/gdb/avr-tdep.c
  {
    struct stack_item *si;
    si = XNEW (struct stack_item);
-@@ -1285,12 +1285,12 @@ avr_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -1286,12 +1286,12 @@ avr_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
  
    for (i = 0; i < nargs; i++)
      {
@@ -437,7 +437,7 @@ diff --git a/gdb/h8300-tdep.c b/gdb/h8300-tdep.c
 diff --git a/gdb/hppa-tdep.c b/gdb/hppa-tdep.c
 --- a/gdb/hppa-tdep.c
 +++ b/gdb/hppa-tdep.c
-@@ -989,7 +989,7 @@ hppa64_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -984,7 +984,7 @@ hppa64_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
      {
        struct value *arg = args[i];
        struct type *type = value_type (arg);
@@ -446,7 +446,7 @@ diff --git a/gdb/hppa-tdep.c b/gdb/hppa-tdep.c
        const bfd_byte *valbuf;
        bfd_byte fptrbuf[8];
        int regnum;
-@@ -1184,7 +1184,7 @@ hppa64_return_value (struct gdbarch *gdbarch, struct value *function,
+@@ -1177,7 +1177,7 @@ hppa64_return_value (struct gdbarch *gdbarch, struct value *function,
  		     struct type *type, struct regcache *regcache,
  		     gdb_byte *readbuf, const gdb_byte *writebuf)
  {
@@ -470,7 +470,7 @@ diff --git a/gdb/i386-darwin-tdep.c b/gdb/i386-darwin-tdep.c
 diff --git a/gdb/i386-tdep.c b/gdb/i386-tdep.c
 --- a/gdb/i386-tdep.c
 +++ b/gdb/i386-tdep.c
-@@ -2677,7 +2677,7 @@ i386_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -2678,7 +2678,7 @@ i386_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
    gdb_byte buf[4];
    int i;
    int write_pass;
@@ -479,7 +479,7 @@ diff --git a/gdb/i386-tdep.c b/gdb/i386-tdep.c
  
    /* BND registers can be in arbitrary values at the moment of the
       inferior call.  This can cause boundary violations that are not
-@@ -2692,7 +2692,7 @@ i386_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -2693,7 +2693,7 @@ i386_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
  
    for (write_pass = 0; write_pass < 2; write_pass++)
      {
@@ -488,7 +488,7 @@ diff --git a/gdb/i386-tdep.c b/gdb/i386-tdep.c
  
        if (struct_return)
  	{
-@@ -2709,7 +2709,7 @@ i386_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -2710,7 +2710,7 @@ i386_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
  
        for (i = 0; i < nargs; i++)
  	{
@@ -497,7 +497,7 @@ diff --git a/gdb/i386-tdep.c b/gdb/i386-tdep.c
  
  	  if (write_pass)
  	    {
-@@ -2916,7 +2916,7 @@ i386_reg_struct_return_p (struct gdbarch *gdbarch, struct type *type)
+@@ -2917,7 +2917,7 @@ i386_reg_struct_return_p (struct gdbarch *gdbarch, struct type *type)
  {
    struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
    enum type_code code = TYPE_CODE (type);
@@ -506,7 +506,7 @@ diff --git a/gdb/i386-tdep.c b/gdb/i386-tdep.c
  
    gdb_assert (code == TYPE_CODE_STRUCT
                || code == TYPE_CODE_UNION
-@@ -3738,7 +3738,7 @@ static int
+@@ -3703,7 +3703,7 @@ static int
  i386_convert_register_p (struct gdbarch *gdbarch,
  			 int regnum, struct type *type)
  {
@@ -515,7 +515,7 @@ diff --git a/gdb/i386-tdep.c b/gdb/i386-tdep.c
  
    /* Values may be spread across multiple registers.  Most debugging
       formats aren't expressive enough to specify the locations, so
-@@ -3771,7 +3771,7 @@ i386_register_to_value (struct frame_info *frame, int regnum,
+@@ -3736,7 +3736,7 @@ i386_register_to_value (struct frame_info *frame, int regnum,
  			int *optimizedp, int *unavailablep)
  {
    struct gdbarch *gdbarch = get_frame_arch (frame);
@@ -524,7 +524,7 @@ diff --git a/gdb/i386-tdep.c b/gdb/i386-tdep.c
  
    if (i386_fp_regnum_p (gdbarch, regnum))
      return i387_register_to_value (frame, regnum, type, to,
-@@ -3807,7 +3807,7 @@ static void
+@@ -3772,7 +3772,7 @@ static void
  i386_value_to_register (struct frame_info *frame, int regnum,
  			struct type *type, const gdb_byte *from)
  {
@@ -551,7 +551,7 @@ diff --git a/gdb/iq2000-tdep.c b/gdb/iq2000-tdep.c
 diff --git a/gdb/m32r-tdep.c b/gdb/m32r-tdep.c
 --- a/gdb/m32r-tdep.c
 +++ b/gdb/m32r-tdep.c
-@@ -679,7 +679,7 @@ m32r_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -671,7 +671,7 @@ m32r_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
    CORE_ADDR regval;
    gdb_byte *val;
    gdb_byte valbuf[M32R_ARG_REGISTER_SIZE];
@@ -563,7 +563,7 @@ diff --git a/gdb/m32r-tdep.c b/gdb/m32r-tdep.c
 diff --git a/gdb/m68k-tdep.c b/gdb/m68k-tdep.c
 --- a/gdb/m68k-tdep.c
 +++ b/gdb/m68k-tdep.c
-@@ -373,7 +373,7 @@ m68k_reg_struct_return_p (struct gdbarch *gdbarch, struct type *type)
+@@ -372,7 +372,7 @@ m68k_reg_struct_return_p (struct gdbarch *gdbarch, struct type *type)
  {
    struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
    enum type_code code = TYPE_CODE (type);
@@ -572,7 +572,7 @@ diff --git a/gdb/m68k-tdep.c b/gdb/m68k-tdep.c
  
    gdb_assert (code == TYPE_CODE_STRUCT || code == TYPE_CODE_UNION
  	      || code == TYPE_CODE_COMPLEX);
-@@ -505,9 +505,9 @@ m68k_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -504,9 +504,9 @@ m68k_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
    for (i = nargs - 1; i >= 0; i--)
      {
        struct type *value_type = value_enclosing_type (args[i]);
@@ -585,40 +585,10 @@ diff --git a/gdb/m68k-tdep.c b/gdb/m68k-tdep.c
  
        /* Non-scalars bigger than 4 bytes are left aligned, others are
  	 right aligned.  */
-diff --git a/gdb/m88k-tdep.c b/gdb/m88k-tdep.c
---- a/gdb/m88k-tdep.c
-+++ b/gdb/m88k-tdep.c
-@@ -254,13 +254,13 @@ m88k_store_arguments (struct regcache *regcache, int nargs,
- {
-   struct gdbarch *gdbarch = regcache->arch ();
-   int num_register_words = 0;
--  int num_stack_words = 0;
-+  LONGEST num_stack_words = 0;
-   int i;
- 
-   for (i = 0; i < nargs; i++)
-     {
-       struct type *type = value_type (args[i]);
--      int len = TYPE_LENGTH (type);
-+      LONGEST len = TYPE_LENGTH (type);
- 
-       if (m88k_integral_or_pointer_p (type) && len < 4)
- 	{
-@@ -302,8 +302,8 @@ m88k_store_arguments (struct regcache *regcache, int nargs,
-     {
-       const bfd_byte *valbuf = value_contents (args[i]);
-       struct type *type = value_type (args[i]);
--      int len = TYPE_LENGTH (type);
--      int stack_word = num_stack_words;
-+      LONGEST len = TYPE_LENGTH (type);
-+      LONGEST stack_word = num_stack_words;
- 
-       if (m88k_in_register_p (type))
- 	{
 diff --git a/gdb/mep-tdep.c b/gdb/mep-tdep.c
 --- a/gdb/mep-tdep.c
 +++ b/gdb/mep-tdep.c
-@@ -2253,7 +2253,7 @@ push_large_arguments (CORE_ADDR sp, int argc, struct value **argv,
+@@ -2239,7 +2239,7 @@ push_large_arguments (CORE_ADDR sp, int argc, struct value **argv,
  
    for (i = 0; i < argc; i++)
      {
@@ -630,7 +600,7 @@ diff --git a/gdb/mep-tdep.c b/gdb/mep-tdep.c
 diff --git a/gdb/mips-tdep.c b/gdb/mips-tdep.c
 --- a/gdb/mips-tdep.c
 +++ b/gdb/mips-tdep.c
-@@ -477,7 +477,7 @@ static void
+@@ -489,7 +489,7 @@ static void
  mips_xfer_register (struct gdbarch *gdbarch, struct regcache *regcache,
  		    int reg_num, int length,
  		    enum bfd_endian endian, gdb_byte *in,
@@ -639,7 +609,7 @@ diff --git a/gdb/mips-tdep.c b/gdb/mips-tdep.c
  {
    int reg_offset = 0;
  
-@@ -500,8 +500,8 @@ mips_xfer_register (struct gdbarch *gdbarch, struct regcache *regcache,
+@@ -512,8 +512,8 @@ mips_xfer_register (struct gdbarch *gdbarch, struct regcache *regcache,
      }
    if (mips_debug)
      fprintf_unfiltered (gdb_stderr,
@@ -650,7 +620,7 @@ diff --git a/gdb/mips-tdep.c b/gdb/mips-tdep.c
    if (mips_debug && out != NULL)
      {
        int i;
-@@ -4533,13 +4533,13 @@ mips_eabi_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -4543,13 +4543,13 @@ mips_eabi_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
        gdb_byte ref_valbuf[MAX_MIPS_ABI_REGSIZE];
        struct value *arg = args[argnum];
        struct type *arg_type = check_typedef (value_type (arg));
@@ -667,7 +637,7 @@ diff --git a/gdb/mips-tdep.c b/gdb/mips-tdep.c
  
        /* The EABI passes structures that do not fit in a register by
           reference.  */
-@@ -4809,7 +4809,7 @@ mips_eabi_return_value (struct gdbarch *gdbarch, struct value *function,
+@@ -4819,7 +4819,7 @@ mips_eabi_return_value (struct gdbarch *gdbarch, struct value *function,
  
  static int
  mips_n32n64_fp_arg_chunk_p (struct gdbarch *gdbarch, struct type *arg_type,
@@ -676,7 +646,7 @@ diff --git a/gdb/mips-tdep.c b/gdb/mips-tdep.c
  {
    int i;
  
-@@ -4824,7 +4824,7 @@ mips_n32n64_fp_arg_chunk_p (struct gdbarch *gdbarch, struct type *arg_type,
+@@ -4834,7 +4834,7 @@ mips_n32n64_fp_arg_chunk_p (struct gdbarch *gdbarch, struct type *arg_type,
  
    for (i = 0; i < TYPE_NFIELDS (arg_type); i++)
      {
@@ -685,7 +655,7 @@ diff --git a/gdb/mips-tdep.c b/gdb/mips-tdep.c
        struct type *field_type;
  
        /* We're only looking at normal fields.  */
-@@ -4866,7 +4866,7 @@ mips_n32n64_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -4876,7 +4876,7 @@ mips_n32n64_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
    int argreg;
    int float_argreg;
    int argnum;
@@ -694,7 +664,7 @@ diff --git a/gdb/mips-tdep.c b/gdb/mips-tdep.c
    int stack_offset = 0;
    enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
    CORE_ADDR func_addr = find_function_addr (function, NULL);
-@@ -5217,11 +5217,11 @@ mips_n32n64_return_value (struct gdbarch *gdbarch, struct value *function,
+@@ -5227,11 +5227,11 @@ mips_n32n64_return_value (struct gdbarch *gdbarch, struct value *function,
  				: MIPS_V0_REGNUM);
  	   field < TYPE_NFIELDS (type); field++, regnum += 2)
  	{
@@ -710,7 +680,7 @@ diff --git a/gdb/mips-tdep.c b/gdb/mips-tdep.c
  	  if (TYPE_LENGTH (TYPE_FIELD_TYPE (type, field)) == 16)
  	    {
  	      /* A 16-byte long double field goes in two consecutive
-@@ -5263,8 +5263,8 @@ mips_n32n64_return_value (struct gdbarch *gdbarch, struct value *function,
+@@ -5273,8 +5273,8 @@ mips_n32n64_return_value (struct gdbarch *gdbarch, struct value *function,
  	  if (offset + xfer > TYPE_LENGTH (type))
  	    xfer = TYPE_LENGTH (type) - offset;
  	  if (mips_debug)
@@ -721,7 +691,7 @@ diff --git a/gdb/mips-tdep.c b/gdb/mips-tdep.c
  	  mips_xfer_register (gdbarch, regcache,
  			      gdbarch_num_regs (gdbarch) + regnum,
  			      xfer, BFD_ENDIAN_UNKNOWN, readbuf, writebuf,
-@@ -5322,7 +5322,7 @@ mips_o32_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -5332,7 +5332,7 @@ mips_o32_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
    int argreg;
    int float_argreg;
    int argnum;
@@ -730,7 +700,7 @@ diff --git a/gdb/mips-tdep.c b/gdb/mips-tdep.c
    int stack_offset = 0;
    enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
    CORE_ADDR func_addr = find_function_addr (function, NULL);
-@@ -5386,13 +5386,13 @@ mips_o32_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -5396,13 +5396,13 @@ mips_o32_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
        const gdb_byte *val;
        struct value *arg = args[argnum];
        struct type *arg_type = check_typedef (value_type (arg));
@@ -747,7 +717,7 @@ diff --git a/gdb/mips-tdep.c b/gdb/mips-tdep.c
  
        val = value_contents (arg);
  
-@@ -5846,8 +5846,8 @@ mips_o64_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -5856,8 +5856,8 @@ mips_o64_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
    int argreg;
    int float_argreg;
    int argnum;
@@ -758,7 +728,7 @@ diff --git a/gdb/mips-tdep.c b/gdb/mips-tdep.c
    enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
    CORE_ADDR func_addr = find_function_addr (function, NULL);
  
-@@ -5907,13 +5907,13 @@ mips_o64_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -5917,13 +5917,13 @@ mips_o64_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
        const gdb_byte *val;
        struct value *arg = args[argnum];
        struct type *arg_type = check_typedef (value_type (arg));
@@ -778,7 +748,7 @@ diff --git a/gdb/mips-tdep.c b/gdb/mips-tdep.c
 diff --git a/gdb/mn10300-tdep.c b/gdb/mn10300-tdep.c
 --- a/gdb/mn10300-tdep.c
 +++ b/gdb/mn10300-tdep.c
-@@ -1212,7 +1212,7 @@ mn10300_push_dummy_call (struct gdbarch *gdbarch,
+@@ -1197,7 +1197,7 @@ mn10300_push_dummy_call (struct gdbarch *gdbarch,
    enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
    const int push_size = register_size (gdbarch, E_PC_REGNUM);
    int regs_used;
@@ -787,21 +757,6 @@ diff --git a/gdb/mn10300-tdep.c b/gdb/mn10300-tdep.c
    int stack_offset = 0;
    int argnum;
    const gdb_byte *val;
-diff --git a/gdb/mt-tdep.c b/gdb/mt-tdep.c
---- a/gdb/mt-tdep.c
-+++ b/gdb/mt-tdep.c
-@@ -789,9 +789,9 @@ mt_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
-   gdb_byte buf[MT_MAX_STRUCT_SIZE];
-   int argreg = MT_1ST_ARGREG;
-   int split_param_len = 0;
--  int stack_dest = sp;
-+  LONGEST stack_dest = sp;
-   int slacklen;
--  int typelen;
-+  LONGEST typelen;
-   int i, j;
- 
-   /* First handle however many args we can fit into MT_1ST_ARGREG thru
 diff --git a/gdb/ppc-sysv-tdep.c b/gdb/ppc-sysv-tdep.c
 --- a/gdb/ppc-sysv-tdep.c
 +++ b/gdb/ppc-sysv-tdep.c
@@ -835,7 +790,7 @@ diff --git a/gdb/ppc-sysv-tdep.c b/gdb/ppc-sysv-tdep.c
  	  const bfd_byte *val = value_contents (arg);
  
  	  if (TYPE_CODE (type) == TYPE_CODE_FLT && len <= 8
-@@ -1285,11 +1285,11 @@ struct ppc64_sysv_argpos
+@@ -1246,11 +1246,11 @@ struct ppc64_sysv_argpos
  
  static void
  ppc64_sysv_abi_push_val (struct gdbarch *gdbarch,
@@ -849,16 +804,16 @@ diff --git a/gdb/ppc-sysv-tdep.c b/gdb/ppc-sysv-tdep.c
  
    /* Enforce alignment of stack location, if requested.  */
    if (align > tdep->wordsize)
-@@ -1327,7 +1327,7 @@ ppc64_sysv_abi_push_val (struct gdbarch *gdbarch,
+@@ -1287,7 +1287,7 @@ ppc64_sysv_abi_push_val (struct gdbarch *gdbarch,
+     {
        if (argpos->regcache && argpos->greg <= 10)
- 	regcache_cooked_write_part (argpos->regcache,
- 				    tdep->ppc_gp0_regnum + argpos->greg,
--				    offset, len, val);
-+				    offset, (LONGEST) len, val);
+ 	argpos->regcache->cooked_write_part
+-	  (tdep->ppc_gp0_regnum + argpos->greg, offset, len, val);
++	  (tdep->ppc_gp0_regnum + argpos->greg, offset, (LONGEST) len, val);
        argpos->greg++;
      }
  }
-@@ -1386,7 +1386,7 @@ ppc64_sysv_abi_push_freg (struct gdbarch *gdbarch,
+@@ -1346,7 +1346,7 @@ ppc64_sysv_abi_push_freg (struct gdbarch *gdbarch,
        if (argpos->regcache && argpos->freg <= 13)
  	{
  	  int regnum = tdep->ppc_fp0_regnum + argpos->freg;
@@ -867,7 +822,7 @@ diff --git a/gdb/ppc-sysv-tdep.c b/gdb/ppc-sysv-tdep.c
  
  	  if (gdbarch_byte_order (gdbarch) == BFD_ENDIAN_BIG)
  	    offset = 8 - TYPE_LENGTH (type);
-@@ -1836,7 +1836,7 @@ ppc64_sysv_abi_return_value_base (struct gdbarch *gdbarch, struct type *valtype,
+@@ -1795,7 +1795,7 @@ ppc64_sysv_abi_return_value_base (struct gdbarch *gdbarch, struct type *valtype,
        && TYPE_CODE (valtype) == TYPE_CODE_DECFLOAT)
      {
        int regnum = tdep->ppc_fp0_regnum + 1 + index;
@@ -876,7 +831,7 @@ diff --git a/gdb/ppc-sysv-tdep.c b/gdb/ppc-sysv-tdep.c
  
        if (gdbarch_byte_order (gdbarch) == BFD_ENDIAN_BIG)
  	offset = 8 - TYPE_LENGTH (valtype);
-@@ -1912,7 +1912,7 @@ ppc64_sysv_abi_return_value_base (struct gdbarch *gdbarch, struct type *valtype,
+@@ -1871,7 +1871,7 @@ ppc64_sysv_abi_return_value_base (struct gdbarch *gdbarch, struct type *valtype,
        && TYPE_CODE (valtype) == TYPE_CODE_ARRAY && TYPE_VECTOR (valtype))
      {
        int regnum = tdep->ppc_gp0_regnum + 3 + index;
@@ -885,7 +840,7 @@ diff --git a/gdb/ppc-sysv-tdep.c b/gdb/ppc-sysv-tdep.c
  
        if (gdbarch_byte_order (gdbarch) == BFD_ENDIAN_BIG)
  	offset = 8 - TYPE_LENGTH (valtype);
-@@ -2020,7 +2020,8 @@ ppc64_sysv_abi_return_value (struct gdbarch *gdbarch, struct value *function,
+@@ -1979,7 +1979,8 @@ ppc64_sysv_abi_return_value (struct gdbarch *gdbarch, struct value *function,
        && TYPE_LENGTH (TYPE_TARGET_TYPE (valtype)) == 1)
      {
        int regnum = tdep->ppc_gp0_regnum + 3;
@@ -894,11 +849,11 @@ diff --git a/gdb/ppc-sysv-tdep.c b/gdb/ppc-sysv-tdep.c
 +	= (register_size (gdbarch, regnum) - TYPE_LENGTH (valtype));
  
        if (writebuf != NULL)
- 	regcache_cooked_write_part (regcache, regnum,
+ 	regcache->cooked_write_part (regnum, offset, TYPE_LENGTH (valtype),
 diff --git a/gdb/rl78-tdep.c b/gdb/rl78-tdep.c
 --- a/gdb/rl78-tdep.c
 +++ b/gdb/rl78-tdep.c
-@@ -1347,8 +1347,8 @@ rl78_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -1346,8 +1346,8 @@ rl78_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
    for (i = nargs - 1; i >= 0; i--)
      {
        struct type *value_type = value_enclosing_type (args[i]);
@@ -912,7 +867,7 @@ diff --git a/gdb/rl78-tdep.c b/gdb/rl78-tdep.c
 diff --git a/gdb/rs6000-aix-tdep.c b/gdb/rs6000-aix-tdep.c
 --- a/gdb/rs6000-aix-tdep.c
 +++ b/gdb/rs6000-aix-tdep.c
-@@ -187,9 +187,9 @@ rs6000_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -177,9 +177,9 @@ rs6000_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
    struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
    enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
    int ii;
@@ -924,7 +879,7 @@ diff --git a/gdb/rs6000-aix-tdep.c b/gdb/rs6000-aix-tdep.c
    gdb_byte tmp_buffer[50];
    int f_argno = 0;		/* current floating point argno */
    int wordsize = gdbarch_tdep (gdbarch)->wordsize;
-@@ -319,7 +319,7 @@ ran_out_of_registers_for_arguments:
+@@ -307,7 +307,7 @@ ran_out_of_registers_for_arguments:
  
    if ((argno < nargs) || argbytes)
      {
@@ -933,36 +888,6 @@ diff --git a/gdb/rs6000-aix-tdep.c b/gdb/rs6000-aix-tdep.c
  
        if (argbytes)
  	{
-diff --git a/gdb/s390-linux-tdep.c b/gdb/s390-linux-tdep.c
---- a/gdb/s390-linux-tdep.c
-+++ b/gdb/s390-linux-tdep.c
-@@ -3132,7 +3132,7 @@ s390_function_arg_vector (struct type *type)
- /* Determine whether N is a power of two.  */
- 
- static int
--is_power_of_two (unsigned int n)
-+is_power_of_two (ULONGEST n)
- {
-   return n && ((n & (n - 1)) == 0);
- }
-@@ -3189,7 +3189,7 @@ s390_handle_arg (struct s390_arg_state *as, struct value *arg,
- 		 enum bfd_endian byte_order, int is_unnamed)
- {
-   struct type *type = check_typedef (value_type (arg));
--  unsigned int length = TYPE_LENGTH (type);
-+  LONGEST length = TYPE_LENGTH (type);
-   int write_mode = as->regcache != NULL;
- 
-   if (s390_function_arg_float (type))
-@@ -3452,7 +3452,7 @@ s390_register_return_value (struct gdbarch *gdbarch, struct type *type,
- {
-   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
-   int word_size = gdbarch_ptr_bit (gdbarch) / 8;
--  int length = TYPE_LENGTH (type);
-+  LONGEST length = TYPE_LENGTH (type);
-   int code = TYPE_CODE (type);
- 
-   if (code == TYPE_CODE_FLT || code == TYPE_CODE_DECFLOAT)
 diff --git a/gdb/score-tdep.c b/gdb/score-tdep.c
 --- a/gdb/score-tdep.c
 +++ b/gdb/score-tdep.c
@@ -978,7 +903,7 @@ diff --git a/gdb/score-tdep.c b/gdb/score-tdep.c
 diff --git a/gdb/sh-tdep.c b/gdb/sh-tdep.c
 --- a/gdb/sh-tdep.c
 +++ b/gdb/sh-tdep.c
-@@ -813,7 +813,7 @@ sh_skip_prologue (struct gdbarch *gdbarch, CORE_ADDR pc)
+@@ -812,7 +812,7 @@ sh_skip_prologue (struct gdbarch *gdbarch, CORE_ADDR pc)
  static int
  sh_use_struct_convention (int renesas_abi, struct type *type)
  {
@@ -987,7 +912,7 @@ diff --git a/gdb/sh-tdep.c b/gdb/sh-tdep.c
    int nelem = TYPE_NFIELDS (type);
  
    /* The Renesas ABI returns aggregate types always on stack.  */
-@@ -915,7 +915,7 @@ sh_frame_align (struct gdbarch *ignore, CORE_ADDR sp)
+@@ -914,7 +914,7 @@ sh_frame_align (struct gdbarch *ignore, CORE_ADDR sp)
  
  /* Helper function to justify value in register according to endianess.  */
  static const gdb_byte *
@@ -996,7 +921,7 @@ diff --git a/gdb/sh-tdep.c b/gdb/sh-tdep.c
  {
    static gdb_byte valbuf[4];
  
-@@ -1075,7 +1075,8 @@ sh_push_dummy_call_fpu (struct gdbarch *gdbarch,
+@@ -1074,7 +1074,8 @@ sh_push_dummy_call_fpu (struct gdbarch *gdbarch,
    struct type *type;
    CORE_ADDR regval;
    const gdb_byte *val;
@@ -1006,7 +931,7 @@ diff --git a/gdb/sh-tdep.c b/gdb/sh-tdep.c
    int pass_on_stack = 0;
    int treat_as_flt;
    int last_reg_arg = INT_MAX;
-@@ -1216,7 +1217,8 @@ sh_push_dummy_call_nofpu (struct gdbarch *gdbarch,
+@@ -1215,7 +1216,8 @@ sh_push_dummy_call_nofpu (struct gdbarch *gdbarch,
    struct type *type;
    CORE_ADDR regval;
    const gdb_byte *val;
@@ -1015,27 +940,6 @@ diff --git a/gdb/sh-tdep.c b/gdb/sh-tdep.c
 +  int reg_size = 0;
    int pass_on_stack = 0;
    int last_reg_arg = INT_MAX;
- 
-diff --git a/gdb/sh64-tdep.c b/gdb/sh64-tdep.c
---- a/gdb/sh64-tdep.c
-+++ b/gdb/sh64-tdep.c
-@@ -1079,7 +1079,7 @@ sh64_push_dummy_call (struct gdbarch *gdbarch,
- 		      CORE_ADDR struct_addr)
- {
-   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
--  int stack_offset, stack_alloc;
-+  LONGEST stack_offset, stack_alloc;
-   int int_argreg;
-   int float_arg_index = 0;
-   int double_arg_index = 0;
-@@ -1088,7 +1088,7 @@ sh64_push_dummy_call (struct gdbarch *gdbarch,
-   CORE_ADDR regval;
-   const gdb_byte *val;
-   gdb_byte valbuf[8];
--  int len;
-+  LONGEST len;
-   int argreg_size;
-   int fp_args[12];
  
 diff --git a/gdb/sparc64-tdep.c b/gdb/sparc64-tdep.c
 --- a/gdb/sparc64-tdep.c
@@ -1097,7 +1001,7 @@ diff --git a/gdb/sparc64-tdep.c b/gdb/sparc64-tdep.c
 diff --git a/gdb/spu-tdep.c b/gdb/spu-tdep.c
 --- a/gdb/spu-tdep.c
 +++ b/gdb/spu-tdep.c
-@@ -1430,7 +1430,7 @@ spu_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -1431,7 +1431,7 @@ spu_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
        struct value *arg = args[i];
        struct type *type = check_typedef (value_type (arg));
        const gdb_byte *contents = value_contents (arg);
@@ -1106,7 +1010,7 @@ diff --git a/gdb/spu-tdep.c b/gdb/spu-tdep.c
  
        /* If the argument doesn't wholly fit into registers, it and
  	 all subsequent arguments go to the stack.  */
-@@ -1462,7 +1462,7 @@ spu_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -1463,7 +1463,7 @@ spu_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
  	{
  	  struct value *arg = args[i];
  	  struct type *type = check_typedef (value_type (arg));
@@ -1118,7 +1022,7 @@ diff --git a/gdb/spu-tdep.c b/gdb/spu-tdep.c
 diff --git a/gdb/tic6x-tdep.c b/gdb/tic6x-tdep.c
 --- a/gdb/tic6x-tdep.c
 +++ b/gdb/tic6x-tdep.c
-@@ -883,7 +883,7 @@ tic6x_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -881,7 +881,7 @@ tic6x_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
    int argreg = 0;
    int argnum;
    int stack_offset = 4;
@@ -1127,7 +1031,7 @@ diff --git a/gdb/tic6x-tdep.c b/gdb/tic6x-tdep.c
    CORE_ADDR func_addr = find_function_addr (function, NULL);
    enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
    struct type *func_type = value_type (function);
-@@ -917,7 +917,7 @@ tic6x_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -915,7 +915,7 @@ tic6x_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
    /* Now make space on the stack for the args.  */
    for (argnum = 0; argnum < nargs; argnum++)
      {
@@ -1136,7 +1040,7 @@ diff --git a/gdb/tic6x-tdep.c b/gdb/tic6x-tdep.c
        if (argnum >= 10 - argreg)
  	references_offset += len;
        stack_offset += len;
-@@ -936,7 +936,7 @@ tic6x_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -934,7 +934,7 @@ tic6x_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
        const gdb_byte *val;
        struct value *arg = args[argnum];
        struct type *arg_type = check_typedef (value_type (arg));
@@ -1145,7 +1049,7 @@ diff --git a/gdb/tic6x-tdep.c b/gdb/tic6x-tdep.c
        enum type_code typecode = TYPE_CODE (arg_type);
  
        val = value_contents (arg);
-@@ -1096,7 +1096,8 @@ tic6x_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+@@ -1090,7 +1090,8 @@ tic6x_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
  	    }
  	  else
  	    internal_error (__FILE__, __LINE__,
@@ -1227,7 +1131,7 @@ diff --git a/gdb/xstormy16-tdep.c b/gdb/xstormy16-tdep.c
 diff --git a/gdb/xtensa-tdep.c b/gdb/xtensa-tdep.c
 --- a/gdb/xtensa-tdep.c
 +++ b/gdb/xtensa-tdep.c
-@@ -1628,8 +1628,7 @@ xtensa_store_return_value (struct type *type,
+@@ -1626,8 +1626,7 @@ xtensa_store_return_value (struct type *type,
  
        if (len > (callsize > 8 ? 8 : 16))
  	internal_error (__FILE__, __LINE__,
@@ -1237,7 +1141,7 @@ diff --git a/gdb/xtensa-tdep.c b/gdb/xtensa-tdep.c
        areg = arreg_number (gdbarch,
  			   gdbarch_tdep (gdbarch)->a0_base + 2 + callsize, wb);
  
-@@ -1703,18 +1702,18 @@ xtensa_push_dummy_call (struct gdbarch *gdbarch,
+@@ -1701,18 +1700,18 @@ xtensa_push_dummy_call (struct gdbarch *gdbarch,
  {
    enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
    int i;
@@ -1259,7 +1163,7 @@ diff --git a/gdb/xtensa-tdep.c b/gdb/xtensa-tdep.c
        int regno;		/* regno if in register.  */
      } u;
    };
-@@ -1738,9 +1737,10 @@ xtensa_push_dummy_call (struct gdbarch *gdbarch,
+@@ -1736,9 +1735,10 @@ xtensa_push_dummy_call (struct gdbarch *gdbarch,
          {
  	  struct value *arg = args[i];
  	  struct type *arg_type = check_typedef (value_type (arg));
@@ -1273,7 +1177,7 @@ diff --git a/gdb/xtensa-tdep.c b/gdb/xtensa-tdep.c
  	  switch (TYPE_CODE (arg_type))
  	    {
  	    case TYPE_CODE_INT:
-@@ -1810,8 +1810,8 @@ xtensa_push_dummy_call (struct gdbarch *gdbarch,
+@@ -1808,8 +1808,8 @@ xtensa_push_dummy_call (struct gdbarch *gdbarch,
  	  info->align = TYPE_LENGTH (builtin_type (gdbarch)->builtin_long);
  	  break;
  	}
@@ -1283,7 +1187,7 @@ diff --git a/gdb/xtensa-tdep.c b/gdb/xtensa-tdep.c
  
        /* Align size and onstack_size.  */
        size = (size + info->align - 1) & ~(info->align - 1);
-@@ -1856,7 +1856,7 @@ xtensa_push_dummy_call (struct gdbarch *gdbarch,
+@@ -1854,7 +1854,7 @@ xtensa_push_dummy_call (struct gdbarch *gdbarch,
  
        if (info->onstack)
  	{
@@ -1292,7 +1196,7 @@ diff --git a/gdb/xtensa-tdep.c b/gdb/xtensa-tdep.c
  	  CORE_ADDR offset = sp + info->u.offset;
  
  	  /* Odd-sized structs are aligned to the lower side of a memory
-@@ -1872,7 +1872,7 @@ xtensa_push_dummy_call (struct gdbarch *gdbarch,
+@@ -1870,7 +1870,7 @@ xtensa_push_dummy_call (struct gdbarch *gdbarch,
  	}
        else
  	{

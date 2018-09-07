@@ -57,7 +57,7 @@ Content-Disposition: attachment; filename=f77-bounds.patch
 diff --git a/gdb/f-lang.h b/gdb/f-lang.h
 --- a/gdb/f-lang.h
 +++ b/gdb/f-lang.h
-@@ -49,9 +49,9 @@ struct common_block
+@@ -47,9 +47,9 @@ struct common_block
    struct symbol *contents[1];
  };
  
@@ -108,7 +108,7 @@ diff --git a/gdb/f-typeprint.c b/gdb/f-typeprint.c
    int index;
  
    QUIT;
-@@ -365,7 +365,7 @@ f_type_print_base (struct type *type, struct ui_file *stream, int show,
+@@ -370,7 +370,7 @@ f_type_print_base (struct type *type, struct ui_file *stream, int show,
        else
  	{
  	  upper_bound = f77_get_upperbound (type);
