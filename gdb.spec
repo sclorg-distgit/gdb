@@ -18,22 +18,22 @@
 Name: %{?scl_prefix}gdb
 
 # Freeze it when GDB gets branched
-%global snapsrc    20180727
+%global snapsrc    20180828
 # See timestamp of source gnulib installed into gdb/gnulib/ .
 %global snapgnulib 20161115
 %global tarname gdb-%{version}
-Version: 8.1.90.%{snapsrc}
+Version: 8.2
 
 # The release always contains a leading reserved number, start it at 1.
 # `upstream' is not a part of `name' to stay fully rpm dependencies compatible for the testing.
-Release: 44%{?dist}
+Release: 2%{?dist}
 
 License: GPLv3+ and GPLv3+ with exceptions and GPLv2+ and GPLv2+ with exceptions and GPL+ and LGPLv2+ and LGPLv3+ and BSD and Public Domain and GFDL
 Group: Development/Debuggers
 # Do not provide URL for snapshots as the file lasts there only for 2 days.
 # ftp://sourceware.org/pub/gdb/releases/FIXME{tarname}.tar.xz
-Source: %{tarname}.tar.xz
-#Source: ftp://sourceware.org/pub/gdb/releases/%{tarname}.tar.xz
+#Source: %{tarname}.tar.xz
+Source: ftp://sourceware.org/pub/gdb/releases/%{tarname}.tar.xz
 URL: http://gnu.org/software/gdb/
 
 # For our convenience
@@ -656,10 +656,10 @@ else
 fi
 
 # Prepare gdb/config.h first.
-make %{?_smp_mflags} CFLAGS="$CFLAGS $FPROFILE_CFLAGS" LDFLAGS="$LDFLAGS $FPROFILE_CFLAGS" maybe-configure-gdb
+make %{?_smp_mflags} CFLAGS="$CFLAGS $FPROFILE_CFLAGS" LDFLAGS="$LDFLAGS $FPROFILE_CFLAGS" V=1 maybe-configure-gdb
 perl -i.relocatable -pe 's/^(D\[".*_RELOCATABLE"\]=" )1(")$/${1}0$2/' gdb/config.status
 
-make %{?_smp_mflags} CFLAGS="$CFLAGS $FPROFILE_CFLAGS" LDFLAGS="$LDFLAGS $FPROFILE_CFLAGS"
+make %{?_smp_mflags} CFLAGS="$CFLAGS $FPROFILE_CFLAGS" LDFLAGS="$LDFLAGS $FPROFILE_CFLAGS" V=1
 
 ! grep '_RELOCATABLE.*1' gdb/config.h
 grep '^#define HAVE_LIBSELINUX 1$' gdb/config.h
@@ -682,7 +682,7 @@ done	# fprofile
 cd %{gdb_build}
 
 make %{?_smp_mflags} \
-     -C gdb/doc {gdb,annotate}{.info,/index.html,.pdf} MAKEHTMLFLAGS=--no-split MAKEINFOFLAGS=--no-split
+     -C gdb/doc {gdb,annotate}{.info,/index.html,.pdf} MAKEHTMLFLAGS=--no-split MAKEINFOFLAGS=--no-split V=1
 
 # Copy the <sourcetree>/gdb/NEWS file to the directory above it.
 cp $RPM_BUILD_DIR/%{gdb_src}/gdb/NEWS $RPM_BUILD_DIR/%{gdb_src}
@@ -1022,6 +1022,21 @@ fi
 %endif
 
 %changelog
+* Thu Sep  6 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.2-2.fc29
+- Backport "Use pulongest in aarch64-linux-tdep.c" (Tom Tromey),
+  needed to unbreak the compilation on 32-bit architectures.
+
+* Wed Sep  5 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.2-1.fc29
+- Rebase to FSF GDB 8.2.
+- Backport "Indicate batch mode failures by exiting with nonzero status"
+  (Gary Benson, RH BZ 1491128).
+
+* Tue Aug 28 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.90.20180828-46.fc29
+- Rebase to FSF GDB 8.1.90.20180828 (8.2pre).
+
+* Tue Aug 21 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.90.20180727-45.fc29
+- Enable verbose output when running "make".
+
 * Thu Aug  9 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1.90.20180727-44.fc29
 - Add GDB support to access/display POWER8 registers (IBM, RH BZ 1187581).
 

@@ -55,9 +55,9 @@ diff --git a/gdb/ChangeLog b/gdb/ChangeLog
 +	disable TCP's Nagle algorithm (use "ai_protocol" instead of
 +	"ai_socktype").
 +
- 2018-07-25  Alan Hayward  <alan.hayward@arm.com>
+ 2018-09-05  Joel Brobecker  <brobecker@adacore.com>
  
- 	* target-descriptions.c (tdesc_register_bitsize): Rename.
+ 	* version.in: Set GDB version number to 8.2.
 diff --git a/gdb/ser-tcp.c b/gdb/ser-tcp.c
 --- a/gdb/ser-tcp.c
 +++ b/gdb/ser-tcp.c
