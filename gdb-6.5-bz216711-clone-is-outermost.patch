@@ -115,7 +115,7 @@ diff --git a/gdb/amd64-linux-tdep.c b/gdb/amd64-linux-tdep.c
  static void
  amd64_linux_write_pc (struct regcache *regcache, CORE_ADDR pc)
  {
-@@ -1807,6 +1881,8 @@ amd64_linux_init_abi_common(struct gdbarch_info info, struct gdbarch *gdbarch)
+@@ -1808,6 +1882,8 @@ amd64_linux_init_abi_common(struct gdbarch_info info, struct gdbarch *gdbarch)
  
    tdep->xsave_xcr0_offset = I386_LINUX_XSAVE_XCR0_OFFSET;
  
@@ -169,7 +169,7 @@ diff --git a/gdb/amd64-tdep.c b/gdb/amd64-tdep.c
 diff --git a/gdb/i386-tdep.c b/gdb/i386-tdep.c
 --- a/gdb/i386-tdep.c
 +++ b/gdb/i386-tdep.c
-@@ -8401,6 +8401,9 @@ i386_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
+@@ -8406,6 +8406,9 @@ i386_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
  
    tdep->xsave_xcr0_offset = -1;
  
@@ -178,7 +178,7 @@ diff --git a/gdb/i386-tdep.c b/gdb/i386-tdep.c
 +
    tdep->record_regmap = i386_record_regmap;
  
-   set_gdbarch_long_long_align_bit (gdbarch, 32);
+   set_gdbarch_type_align (gdbarch, i386_type_align);
 diff --git a/gdb/i386-tdep.h b/gdb/i386-tdep.h
 --- a/gdb/i386-tdep.h
 +++ b/gdb/i386-tdep.h

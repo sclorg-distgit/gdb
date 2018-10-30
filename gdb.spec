@@ -18,23 +18,22 @@
 Name: %{?scl_prefix}gdb
 
 # Freeze it when GDB gets branched
-%global snapsrc    20180109
+%global snapsrc    20180828
 # See timestamp of source gnulib installed into gdb/gnulib/ .
 %global snapgnulib 20161115
 %global tarname gdb-%{version}
-Version: 8.1
+Version: 8.2
 
 # The release always contains a leading reserved number, start it at 1.
 # `upstream' is not a part of `name' to stay fully rpm dependencies compatible for the testing.
-Release: 24%{?dist}
+Release: 2%{?dist}
 
 License: GPLv3+ and GPLv3+ with exceptions and GPLv2+ and GPLv2+ with exceptions and GPL+ and LGPLv2+ and LGPLv3+ and BSD and Public Domain and GFDL
 Group: Development/Debuggers
 # Do not provide URL for snapshots as the file lasts there only for 2 days.
 # ftp://sourceware.org/pub/gdb/releases/FIXME{tarname}.tar.xz
-#Source: % {tarname}.tar.xz
+#Source: %{tarname}.tar.xz
 Source: ftp://sourceware.org/pub/gdb/releases/%{tarname}.tar.xz
-Buildroot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 URL: http://gnu.org/software/gdb/
 
 # For our convenience
@@ -170,18 +169,12 @@ Source5: %{libstdcxxpython}.tar.xz
 Source6: gdbtui
 
 # libipt: Intel Processor Trace Decoder Library
-%global libipt_version 1.6.1
+%global libipt_version 2.0
 #=fedora
 Source7: v%{libipt_version}.tar.gz
 #=fedora
 Patch1142: v1.5-libipt-static.patch
-# [rhel dts libipt] Fix [-Werror=implicit-fallthrough=] with gcc-7.1.1.
-#=push+jan
-Patch1171: v1.6.1-implicit-fallthrough.patch
 
-## Fix the pahole command breakage due to its Python3 port (RH BZ 1264532).
-##=fedora
-Patch1044: gdb-pahole-python2.patch
 ## [testsuite] Fix false selftest.exp FAIL from system readline-6.3+ (Patrick Palka).
 ##=fedoratest
 #Patch1075: gdb-testsuite-readline63-sigint.patch
@@ -419,7 +412,6 @@ tar xzf %{SOURCE7}
 (
  cd processor-trace-%{libipt_version}
 %patch1142 -p1
-%patch1171 -p1
 )
 %endif
 
@@ -449,7 +441,6 @@ done
 
 %if 0%{?rhel:1} && 0%{?rhel} <= 7
 %patch1119 -p1
-%patch1044 -p1
 %endif
 
 find -name "*.orig" | xargs rm -f
@@ -506,19 +497,6 @@ cd %{gdb_build}$fprofile
 
 export CFLAGS="$RPM_OPT_FLAGS %{?_with_asan:-fsanitize=address}"
 export LDFLAGS="%{?__global_ldflags} %{?_with_asan:-fsanitize=address}"
-
-# DTS on RHEL-6 is using DTS GCC: 0%{?rhel} == 6
-%if 0%{?fedora} > 27 || 0%{?rhel} > 7 || 0%{?rhel} == 6
-# FIXME: gcc-8.0:
-# ./elf32-target.h:215:4: error: cast between incompatible function types from 'void * (*)(bfd *)' {aka 'void * (*)(struct bfd *)'} to 'asymbol * (*)(bfd *, void *, long unsigned int)' {aka 'struct bfd_symbol * (*)(struct bfd *, void *, long unsigned int)'} [-Werror=cast-function-type]
-#    ((asymbol * (*) (bfd *, void *, unsigned long)) bfd_nullvoidptr)
-CFLAGS="$CFLAGS -Wno-error=cast-function-type"
-
-# FIXME: gcc-8.0:
-# linux-tdep.c:1767:11: error: ‘char* strncpy(char*, const char*, size_t)’ specified bound 17 equals destination size [-Werror=stringop-truncation]
-#    strncpy (p->pr_fname, basename, sizeof (p->pr_fname));
-CFLAGS="$CFLAGS -Wno-error=stringop-truncation"
-%endif # 0%{?fedora} > 27 || 0%{?rhel} > 7 || 0%{?rhel} == 6
 
 %if 0%{!?rhel:1} || 0%{?rhel} > 7
 CFLAGS="$CFLAGS -DDNF_DEBUGINFO_INSTALL"
@@ -678,10 +656,10 @@ else
 fi
 
 # Prepare gdb/config.h first.
-make %{?_smp_mflags} CFLAGS="$CFLAGS $FPROFILE_CFLAGS" LDFLAGS="$LDFLAGS $FPROFILE_CFLAGS" maybe-configure-gdb
+make %{?_smp_mflags} CFLAGS="$CFLAGS $FPROFILE_CFLAGS" LDFLAGS="$LDFLAGS $FPROFILE_CFLAGS" V=1 maybe-configure-gdb
 perl -i.relocatable -pe 's/^(D\[".*_RELOCATABLE"\]=" )1(")$/${1}0$2/' gdb/config.status
 
-make %{?_smp_mflags} CFLAGS="$CFLAGS $FPROFILE_CFLAGS" LDFLAGS="$LDFLAGS $FPROFILE_CFLAGS"
+make %{?_smp_mflags} CFLAGS="$CFLAGS $FPROFILE_CFLAGS" LDFLAGS="$LDFLAGS $FPROFILE_CFLAGS" V=1
 
 ! grep '_RELOCATABLE.*1' gdb/config.h
 grep '^#define HAVE_LIBSELINUX 1$' gdb/config.h
@@ -704,7 +682,7 @@ done	# fprofile
 cd %{gdb_build}
 
 make %{?_smp_mflags} \
-     -C gdb/doc {gdb,annotate}{.info,/index.html,.pdf} MAKEHTMLFLAGS=--no-split MAKEINFOFLAGS=--no-split
+     -C gdb/doc {gdb,annotate}{.info,/index.html,.pdf} MAKEHTMLFLAGS=--no-split MAKEINFOFLAGS=--no-split V=1
 
 # Copy the <sourcetree>/gdb/NEWS file to the directory above it.
 cp $RPM_BUILD_DIR/%{gdb_src}/gdb/NEWS $RPM_BUILD_DIR/%{gdb_src}
@@ -747,7 +725,7 @@ gcc -o ./orphanripper %{SOURCE2} -Wall -lutil -ggdb2
     then
       continue
     fi
-    CHECK="$CHECK check//unix/$BI"
+    CHECK="$CHECK check//unix/$BI check//native-gdbserver/$BI check//native-extended-gdbserver/$BI"
   done
   # Do not try -m64 inferiors for -m32 GDB as it cannot handle inferiors larger
   # than itself.
@@ -756,7 +734,7 @@ gcc -o ./orphanripper %{SOURCE2} -Wall -lutil -ggdb2
   RPM_SIZE="$(file ./biarch|sed -n 's/^.*: ELF \(32\|64\)-bit .*$/\1/p')"
   if [ "$RPM_SIZE" != "64" ]
   then
-    CHECK="$(echo " $CHECK "|sed 's# check//unix/-m64 # #')"
+    CHECK="$(echo " $CHECK "|sed 's#check//unix/-m64 check//native-gdbserver/-m64 check//native-extended-gdbserver/-m64# #')"
   fi
 
   # Disable some problematic testcases.
@@ -779,7 +757,7 @@ for t in sum log
 do
   for file in testsuite*/gdb.$t
   do
-    suffix="${file#testsuite.unix.}"
+    suffix="${file#testsuite}"
     suffix="${suffix%/gdb.$t}"
     ln $file gdb-%{_target_platform}$suffix.$t || :
   done
@@ -838,7 +816,7 @@ done
 
 %if 0%{?_enable_debug_packages:1} && 0%{!?_without_python:1}
 mkdir -p $RPM_BUILD_ROOT/usr/lib/debug%{_bindir}
-cp -p $RPM_BUILD_DIR/%{gdb_src}/gdb/gdb-gdb.py $RPM_BUILD_ROOT/usr/lib/debug%{_bindir}/
+cp -p ./gdb/gdb-gdb.py $RPM_BUILD_ROOT/usr/lib/debug%{_bindir}/
 for pyo in "" "-O";do
   # RHEL-5: AttributeError: 'module' object has no attribute 'compile_file'
   %{__python} $pyo -c 'import compileall, re, sys; sys.exit (not compileall.compile_dir("'"$RPM_BUILD_ROOT/usr/lib/debug%{_bindir}"'", 1, "'"/usr/lib/debug%{_bindir}"'"))'
@@ -945,7 +923,6 @@ rm -f $RPM_BUILD_ROOT%{_datadir}/gdb/python/gdb/command/backtrace.py
 %endif
 
 %files
-%defattr(-,root,root)
 # File must begin with "/": {GFDL,COPYING3,COPYING,COPYING.LIB,COPYING3.LIB}
 %if 0%{!?el6:1}
 %license COPYING3 COPYING COPYING.LIB COPYING3.LIB
@@ -965,7 +942,6 @@ rm -f $RPM_BUILD_ROOT%{_datadir}/gdb/python/gdb/command/backtrace.py
 %{_includedir}/gdb
 %if 0%{!?scl:1}
 %files headless
-%defattr(-,root,root)
 %{_prefix}/libexec/gdb
 %endif
 %config(noreplace) %{_sysconfdir}/gdbinit
@@ -988,7 +964,6 @@ rm -f $RPM_BUILD_ROOT%{_datadir}/gdb/python/gdb/command/backtrace.py
 
 %ifnarch sparc sparcv9
 %files gdbserver
-%defattr(-,root,root)
 %{_bindir}/gdbserver
 %{_mandir}/*/gdbserver.1*
 %if %{have_inproctrace}
@@ -1015,7 +990,6 @@ done
 
 %files doc
 %doc %{gdb_build}/gdb/doc/{gdb,annotate}.{html,pdf}
-%defattr(-,root,root)
 %{_infodir}/annotate.info*
 %{_infodir}/gdb.info*
 
@@ -1048,38 +1022,120 @@ fi
 %endif
 
 %changelog
-* Sat Jul 14 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1-24.fc28
-- Update IPv6 support for GDB/gdbserver (RH BZ 881849, Sergio Durigan Junior).
+* Thu Sep  6 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.2-2.fc29
+- Backport "Use pulongest in aarch64-linux-tdep.c" (Tom Tromey),
+  needed to unbreak the compilation on 32-bit architectures.
 
-* Thu Jul 12 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1-23.fc28
+* Wed Sep  5 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.2-1.fc29
+- Rebase to FSF GDB 8.2.
+- Backport "Indicate batch mode failures by exiting with nonzero status"
+  (Gary Benson, RH BZ 1491128).
+
+* Tue Aug 28 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.90.20180828-46.fc29
+- Rebase to FSF GDB 8.1.90.20180828 (8.2pre).
+
+* Tue Aug 21 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.90.20180727-45.fc29
+- Enable verbose output when running "make".
+
+* Thu Aug  9 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1.90.20180727-44.fc29
+- Add GDB support to access/display POWER8 registers (IBM, RH BZ 1187581).
+
+* Thu Aug  9 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.90.20180727-43.fc29
+- Reenable libipt.
+
+* Wed Aug  8 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.90.20180727-42.fc29
+- Again, temporarily disable libipt (needed to upgrade libipt to 2.0).
+
+* Wed Aug  8 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.90.20180727-41.fc29
+- Reenable libipt.
+- Rebuild due to new libipt release.
+- Adjust bundled libipt; remove unnecessary patch.
+- Sync IPv6 patch with F-28 GDB.
+
+* Wed Aug  8 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.90.20180727-40.fc29
+- Temporarily disable libipt (needed to upgrade libipt to 2.0).
+
+* Wed Aug  8 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1.90.20180727-39.fc29
+- [dts] Fix build by removing a patch for already removed pahole.py .
+- [dts rhel6] Fix build by updating gdb-gnat-dwarf-crash-3of3.patch .
+
+* Mon Jul 30 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.90.20180727-38.fc29
+- Recompile to fix RH BZ 1609504 (due to RH BZ 1609577).
+
+* Sat Jul 28 2018 Sergio Durigan Junior <sergiodj@fedoraproject.org> - 8.1.90.20180727-37.fc29
+- Rebase to FSF GDB 8.1.90.20180727 (8.2pre).
+
+* Wed Jul 25 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.90.20180724-36.fc29
+- Rebase to FSF GDB 8.1.90.20180724 (8.2pre).
+
+* Sat Jul 14 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.90.20180714-35.fc29
+- Rebase to FSF GDB 8.1.90.20180714 (8.2pre).
+- Backport IPv6 patch (RH BZ 881849, Sergio Durigan Junior).
+
+* Fri Jul 13 2018 Fedora Release Engineering <releng@fedoraproject.org>
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_29_Mass_Rebuild
+
+* Thu Jul 12 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1.90.20180708-33.fc29
 - [dts] [rhel6] Do not use mpfr as rhel6 has mpfr-2 while GDB requires mpfr-3.
 
-* Thu Jul 12 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1-22.fc28
-- [dts] [rhel6] Workaround gcc-8.0: -Wno-error=cast-function-type,stringop-truncation
+* Thu Jul 12 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1.90.20180708-32.fc29
+- Remove as no longer needed:
+  Workaround gcc-8.0: -Wno-error=cast-function-type,stringop-truncation
 
-* Thu Jul 12 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1-21.fc28
+* Thu Jul 12 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1.90.20180708-31.fc29
 - [dts] Upgrade libstdc++-v3-python to 8.1.1-20180626.
 
-* Thu Jul 12 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1-20.fc28
-- Implement IPv6 support for GDB/gdbserver (RH BZ 881849, Sergio Durigan Junior).
+* Thu Jul 12 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.90.20180708-30.fc29
+- Rebuild due to GCC ABI change.
 
-* Sun Jul  1 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1-19.fc28
-- Show inlined function according to breakpoint (RH BZ 1228549).
+* Sun Jul  8 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.90.20180708-29.fc29
+- Rebase to FSF GDB 8.1.90.20180708 (8.2pre).
 
-* Wed Jun 20 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1-18.fc28
+* Wed Jul  4 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180704-28.fc29
+- Rebase to FSF GDB 8.1.50.20180704 (8.2pre).
+- Remove defattr directives from specfile.
+
+* Mon Jul 02 2018 Miro Hrončok <mhroncok@redhat.com>
+- Rebuilt for Python 3.7
+
+* Fri Jun 29 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180629-26.fc29
+- Rebase to FSF GDB 8.1.50.20180629 (8.2pre).
+- Remove pahole.py.
+- Adjust handling of gdb-gdb.py.
+
+* Sun Jun 24 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180624-25.fc29
+- Rebase to FSF GDB 8.1.50.20180624 (8.2pre).
+
+* Wed Jun 20 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180618-24.fc29
 - Add BuildRequires: mpfr-devel (RH BZ 1593280).
 
-* Tue Jun 19 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1-17.fc28
-- Rework "[aarch64] Fix missed unaligned hardware watchpoints (RH BZ 1347993)."
-- Improve scripts used for patch management.
-- Remove unnecessary cruft from patches.
+* Mon Jun 18 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180618-23.fc29
+- Rebase to FSF GDB 8.1.50.20180618 (8.2pre).
 
-* Mon Jun 18 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1-16.fc28
+* Mon Jun 18 2018 Sergio Durigan Junior <sergiodj@fedoraproject.org> - 8.1.50.20180613-22.fc29
 - Do not run /sbin/install-info when installing the documentation
   (except for DTS).
 
-* Sat May  5 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1-15.fc28
-- [aarch64] Fix missed unaligned hardware watchpoints (RH BZ 1347993).
+* Wed Jun 13 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180613-21.fc29
+- Rebase to FSF GDB 8.1.50.20180613 (8.2pre).
+
+* Wed Jun 13 2018 Miro Hrončok <mhroncok@redhat.com>
+- Rebuilt for Python 3.7
+
+* Wed Jun 13 2018 Miro Hrončok <mhroncok@redhat.com>
+- Bootstrap for Python 3.7
+
+* Fri Jun  8 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180605-18.fc29
+- Fix Python 3.7 breakage (RH BZ 1577396).
+
+* Tue Jun  5 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180605-17.fc29
+- Rebase to FSF GDB 8.1.50.20180605 (8.2pre).
+
+* Sat Jun  2 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180522-16.fc29
+- Rebase to FSF GDB 8.1.50.20180529 (8.2pre).
+
+* Wed May 30 2018 Sergio Durigan Junior <sergiodj@redhat.com> - 8.1.50.20180522-15.fc28
+- Rebase to FSF GDB 8.1.50.20180522 (8.2pre).
 
 * Mon Apr  2 2018 Jan Kratochvil <jan.kratochvil@redhat.com> - 8.1-14.fc28
 - Revert 'Fix PDF build on Rawhide/F-29', rm -rf texinfo/ (from RH BZ 1562580).
