@@ -26,7 +26,7 @@ Version: 8.2
 
 # The release always contains a leading reserved number, start it at 1.
 # `upstream' is not a part of `name' to stay fully rpm dependencies compatible for the testing.
-Release: 2%{?dist}
+Release: 2.bs1%{?dist}
 
 License: GPLv3+ and GPLv3+ with exceptions and GPLv2+ and GPLv2+ with exceptions and GPL+ and LGPLv2+ and LGPLv3+ and BSD and Public Domain and GFDL
 Group: Development/Debuggers
@@ -2573,7 +2573,7 @@ fi
 - Use librpm.so.2 for rpm-4.9.0 in Fedora 15.
 
 * Mon Jan 17 2011 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.2.50.20110117-12.fc15
-- Use %%{?dist} for sanity checking tools compliance (suggested by Petr Muller).
+- Use %.bs1%{?dist} for sanity checking tools compliance (suggested by Petr Muller).
 
 * Mon Jan 17 2011 Jan Kratochvil <jan.kratochvil@redhat.com> - 7.2.50.20110117-11.fc15
 - Rebase to FSF GDB 7.2.50.20110117 (which is a 7.3 pre-release).
