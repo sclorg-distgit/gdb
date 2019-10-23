@@ -1,0 +1,100 @@
+From FEDORA_PATCHES Mon Sep 17 00:00:00 2001
+From: Keith Seitz <keiths@redhat.com>
+Date: Tue, 30 Jul 2019 10:46:38 -0700
+Subject: gdb-sw24545-perf-regression.patch
+
+;; Fix 8.3 symbol-reading performance regression
+;; symtab/24545 (Tom de Vries)
+
+commit e99f9db0f5211455ca4256e8db9d9081967d255e
+Author: Tom de Vries <tdevries@suse.de>
+Date:   Mon Jun 10 20:05:04 2019 +0200
+
+    [gdb/symtab] Fix symbol loading performance regression
+
+    The commit "[gdb/symtab] Fix language of duplicate static minimal symbol"
+    introduces a performance regression, when loading a cc1 executable build with
+    -O0 -g and gcc 7.4.0.  The performance regression, measured in 'real' time is
+    about 175%.
+
+    The slower execution comes from the fact that the fix in symbol_set_names
+    makes the call to symbol_find_demangled_name unconditional.
+
+    Fix this by reverting the commit, and redoing the fix as follows.
+
+    Recapturing the original problem, the first time symbol_set_names is called
+    with gsymbol.language == lang_auto and linkage_name == "_ZL3foov", the name is
+    not present in the per_bfd->demangled_names_hash hash table, so
+    symbol_find_demangled_name is called to demangle the name, after which the
+    mangled/demangled pair is added to the hashtable.  The call to
+    symbol_find_demangled_name also sets gsymbol.language to lang_cplus.
+    The second time symbol_set_names is called with gsymbol.language == lang_auto
+    and linkage_name == "_ZL3foov", the name is present in the hash table, so the
+    demangled name from the hash table is used.  However, the language of the
+    symbol remains lang_auto.
+
+    Fix this by adding a field language in struct demangled_name_entry, and using
+    the field in symbol_set_names to set the language of gsymbol, if necessary.
+
+    Tested on x86_64-linux.
+
+    gdb/ChangeLog:
+
+    2019-06-10  Tom de Vries  <tdevries@suse.de>
+
+            PR symtab/24545
+            * symtab.c (struct demangled_name_entry): Add language field.
+            (symbol_set_names):  Revert "[gdb/symtab] Fix language of duplicate
+            static minimal symbol".  Set and use language field.
+
+diff --git a/gdb/symtab.c b/gdb/symtab.c
+--- a/gdb/symtab.c
++++ b/gdb/symtab.c
+@@ -701,6 +701,7 @@ symbol_set_language (struct general_symbol_info *gsymbol,
+ struct demangled_name_entry
+ {
+   const char *mangled;
++  ENUM_BITFIELD(language) language : LANGUAGE_BITS;
+   char demangled[1];
+ };
+ 
+@@ -841,11 +842,6 @@ symbol_set_names (struct general_symbol_info *gsymbol,
+   else
+     linkage_name_copy = linkage_name;
+ 
+-  /* Set the symbol language.  */
+-  char *demangled_name_ptr
+-    = symbol_find_demangled_name (gsymbol, linkage_name_copy);
+-  gdb::unique_xmalloc_ptr<char> demangled_name (demangled_name_ptr);
+-
+   entry.mangled = linkage_name_copy;
+   slot = ((struct demangled_name_entry **)
+ 	  htab_find_slot (per_bfd->demangled_names_hash,
+@@ -858,6 +854,9 @@ symbol_set_names (struct general_symbol_info *gsymbol,
+       || (gsymbol->language == language_go
+ 	  && (*slot)->demangled[0] == '\0'))
+     {
++      char *demangled_name_ptr
++	= symbol_find_demangled_name (gsymbol, linkage_name_copy);
++      gdb::unique_xmalloc_ptr<char> demangled_name (demangled_name_ptr);
+       int demangled_len = demangled_name ? strlen (demangled_name.get ()) : 0;
+ 
+       /* Suppose we have demangled_name==NULL, copy_name==0, and
+@@ -894,12 +893,16 @@ symbol_set_names (struct general_symbol_info *gsymbol,
+ 	  strcpy (mangled_ptr, linkage_name_copy);
+ 	  (*slot)->mangled = mangled_ptr;
+ 	}
++      (*slot)->language = gsymbol->language;
+ 
+       if (demangled_name != NULL)
+-	strcpy ((*slot)->demangled, demangled_name.get());
++	strcpy ((*slot)->demangled, demangled_name.get ());
+       else
+ 	(*slot)->demangled[0] = '\0';
+     }
++  else if (gsymbol->language == language_unknown
++	   || gsymbol->language == language_auto)
++    gsymbol->language = (*slot)->language;
+ 
+   gsymbol->name = (*slot)->mangled;
+   if ((*slot)->demangled[0] != '\0')
